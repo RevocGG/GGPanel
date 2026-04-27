@@ -1,0 +1,214 @@
+@import "tailwindcss";
+
+@theme {
+  /* ── Colors ── */
+  --color-bg-base:     #0A0B14;
+  --color-bg-surface:  #111827;
+  --color-bg-elevated: #1F2937;
+  --color-bg-card:     rgba(17, 24, 39, 0.85);
+
+  --color-primary:     #8B5CF6;
+  --color-primary-dim: #6D28D9;
+  --color-secondary:   #06B6D4;
+  --color-success:     #10B981;
+  --color-danger:      #EF4444;
+  --color-warning:     #F59E0B;
+  --color-accent:      #F97316;
+
+  --color-text-base:   #F9FAFB;
+  --color-text-muted:  #9CA3AF;
+  --color-text-dim:    #6B7280;
+
+  --color-border:      rgba(139, 92, 246, 0.15);
+  --color-border-hover:rgba(139, 92, 246, 0.3);
+
+  /* ── Fonts ── */
+  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', 'Consolas', monospace;
+
+  /* ── Radius ── */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 20px;
+  --radius-xl: 28px;
+}
+
+/* ── Base ─────────────────────────────────────────────────────── */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+html, body {
+  height: 100%;
+}
+
+body {
+  background: linear-gradient(135deg, #0A0B14 0%, #1E1B4B 50%, #312E81 100%);
+  color: var(--color-text-base);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ── Glass utility ───────────────────────────────────────────── */
+.glass {
+  background: var(--color-bg-card);
+  backdrop-filter: blur(24px) saturate(200%);
+  -webkit-backdrop-filter: blur(24px) saturate(200%);
+  border: 1px solid var(--color-border);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+}
+
+.glass-elevated {
+  background: rgba(31, 41, 55, 0.95);
+  backdrop-filter: blur(28px) saturate(220%);
+  -webkit-backdrop-filter: blur(28px) saturate(220%);
+  border: 1px solid rgba(139, 92, 246, 0.2);
+  box-shadow: 0 12px 48px rgba(0, 0, 0, 0.4);
+}
+
+/* ── Glow effects ────────────────────────────────────────────── */
+.glow-primary {
+  box-shadow: 0 0 24px rgba(139, 92, 246, 0.3), 0 0 48px rgba(139, 92, 246, 0.1);
+}
+
+.glow-success {
+  box-shadow: 0 0 16px rgba(16, 185, 129, 0.4);
+}
+
+.glow-danger {
+  box-shadow: 0 0 16px rgba(239, 68, 68, 0.4);
+}
+
+.glow-accent {
+  box-shadow: 0 0 20px rgba(249, 115, 22, 0.3);
+}
+
+/* ── Neon text ───────────────────────────────────────────────── */
+.neon-text {
+  color: var(--color-primary);
+  text-shadow: 0 0 12px rgba(139, 92, 246, 0.7), 0 0 24px rgba(139, 92, 246, 0.3);
+}
+
+/* ── Scrollbar ───────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: rgba(17, 24, 39, 0.3); border-radius: 6px; }
+::-webkit-scrollbar-thumb {
+  background: rgba(139, 92, 246, 0.4);
+  border-radius: 6px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(139, 92, 246, 0.6);
+}
+
+/* ── Gradient backgrounds ────────────────────────────────────── */
+.bg-grid {
+  background-image:
+    linear-gradient(rgba(139, 92, 246, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(139, 92, 246, 0.04) 1px, transparent 1px);
+  background-size: 32px 32px;
+}
+
+.bg-radial-glow {
+  background:
+    radial-gradient(ellipse 60% 40% at 50% -10%, rgba(139, 92, 246, 0.08), transparent),
+    radial-gradient(ellipse 40% 30% at 80% 90%, rgba(6, 182, 212, 0.06), transparent),
+    radial-gradient(ellipse 30% 30% at 20% 80%, rgba(249, 115, 22, 0.04), transparent);
+}
+
+/* ── Animated status dot ─────────────────────────────────────── */
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+.status-dot-running {
+  animation: pulse-dot 1.8s ease-in-out infinite;
+}
+
+/* ── Log viewer ──────────────────────────────────────────────── */
+.log-viewer {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  line-height: 1.7;
+}
+
+/* ── Sidebar glow line ───────────────────────────────────────── */
+.sidebar-glow-line {
+  background: linear-gradient(180deg, transparent, rgba(139, 92, 246, 0.5), transparent);
+}
+
+/* ── Input focus glow ────────────────────────────────────────── */
+input:focus, textarea:focus, select:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.2);
+}
+
+/* ── Card hover lift ─────────────────────────────────────────── */
+.card-hover {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.card-hover:hover {
+  transform: translateY(-2px) scale(1.01);
+  border-color: rgba(139, 92, 246, 0.3);
+  box-shadow: 0 16px 64px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(139, 92, 246, 0.15);
+}
+
+/* ── Button hover ───────────────────────────────────────────── */
+.btn-hover {
+  transition: all 0.15s ease;
+}
+.btn-hover:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 16px rgba(139, 92, 246, 0.2);
+}
+
+/* ── Tab active indicator ───────────────────────────────────── */
+.tab-active {
+  position: relative;
+}
+.tab-active::after {
+  content: '';
+  position: absolute;
+  bottom: -1px;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, var(--color-primary), var(--color-secondary));
+  border-radius: 1px;
+}
+
+/* ── Progress bar ───────────────────────────────────────────── */
+.progress-glow {
+  box-shadow: inset 0 0 0 1px rgba(139, 92, 246, 0.2);
+}
+.progress-glow > div {
+  background: linear-gradient(90deg, var(--color-primary), var(--color-secondary));
+  box-shadow: 0 0 8px rgba(139, 92, 246, 0.4);
+}
+
+/* ── Badge styles ───────────────────────────────────────────── */
+.badge-running {
+  background: rgba(16, 185, 129, 0.15);
+  color: #10B981;
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.badge-error {
+  background: rgba(239, 68, 68, 0.15);
+  color: #EF4444;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.badge-starting {
+  background: rgba(245, 158, 11, 0.15);
+  color: #F59E0B;
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.badge-stopped {
+  background: rgba(107, 114, 128, 0.15);
+  color: #9CA3AF;
+  border: 1px solid rgba(107, 114, 128, 0.3);
+}
+

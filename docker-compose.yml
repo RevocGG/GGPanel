@@ -1,0 +1,28 @@
+services:
+  ggoose-ui:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: ggoose-ui:latest
+    container_name: ggoose-ui
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      HOSTNAME: "0.0.0.0"
+      DATABASE_URL: "file:/app/data/goose.db"
+      CORES_DIR: "/app/data/cores"
+      CONFIGS_DIR: "/app/data/configs"
+    volumes:
+      # Persistent data: database, core binaries, generated configs
+      - ./data:/app/data
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000/api/auth/logout"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s

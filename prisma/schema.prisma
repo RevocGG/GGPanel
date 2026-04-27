@@ -1,0 +1,57 @@
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x", "debian-openssl-3.0.x", "linux-musl-arm64-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model Core {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  binaryPath  String   // path to the goose-client binary (relative or absolute)
+  status      String   @default("stopped") // running | stopped | error | starting
+  pid         Int?     // OS process ID when running
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  config CoreConfig?
+  stats  CoreStats?
+  logs   CoreLog[]
+}
+
+model CoreConfig {
+  id         String   @id @default(cuid())
+  coreId     String   @unique
+  core       Core     @relation(fields: [coreId], references: [id], onDelete: Cascade)
+  socksHost  String   @default("127.0.0.1")
+  socksPort  Int      @default(1080)
+  googleHost String   @default("216.239.38.120")
+  sni        String   @default("www.google.com")
+  scriptKeys String   @default("[]") // JSON-serialised string[]
+  tunnelKey  String   @default("")
+  updatedAt  DateTime @updatedAt
+}
+
+model CoreStats {
+  id            String   @id @default(cuid())
+  coreId        String   @unique
+  core          Core     @relation(fields: [coreId], references: [id], onDelete: Cascade)
+  totalRequests Int      @default(0)
+  todayRequests Int      @default(0)
+  lastResetAt   DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model CoreLog {
+  id        String   @id @default(cuid())
+  coreId    String
+  core      Core     @relation(fields: [coreId], references: [id], onDelete: Cascade)
+  level     String   @default("info") // info | warn | error
+  message   String
+  createdAt DateTime @default(now())
+
+  @@index([coreId, createdAt])
+}

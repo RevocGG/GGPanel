@@ -1,0 +1,46 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Next.js
+.next/
+out/
+
+# Production build
+build/
+dist/
+
+# Environment files
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Runtime data (binaries, generated configs, database)
+data/goose.db
+data/goose.db-journal
+data/goose.db-shm
+data/goose.db-wal
+data/configs/
+!data/configs/.gitkeep
+data/cores/
+!data/cores/.gitkeep
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editors
+.vscode/settings.json
+.idea/
+*.swp
+*.swo
+
+# Prisma generated
+prisma/migrations/
