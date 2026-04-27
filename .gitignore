@@ -44,3 +44,6 @@ Thumbs.db
 
 # Prisma generated
 prisma/migrations/
+
+
+.github/copilot-instructions.md
