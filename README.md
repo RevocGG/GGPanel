@@ -3,7 +3,7 @@
 [![GitHub Release](https://img.shields.io/github/v/release/RevocGG/GGoose-ui?logo=github)](https://github.com/RevocGG/GGoose-ui/releases/latest)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-**[راهنمای فارسی 🇮🇷](README_FA.md)**
+**[راهنمای فارسی](README_FA.md)**
 
 A self-hosted web dashboard to manage [GooseRelayVPN](https://github.com/Kianmhz/GooseRelayVPN) client cores. Create, configure, start/stop, and monitor multiple VPN cores from one browser tab — no terminal required.
 
