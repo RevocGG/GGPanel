@@ -34,6 +34,15 @@ jobs:
             client_arch: arm64
             client_ext: tar.gz
             client_bin: goose-client
+          - label: linux-armv7
+            runner: ubuntu-22.04
+            node_platform: linux
+            node_arch: arm
+            archive_ext: tar.gz
+            client_os: linux
+            client_arch: armv7
+            client_ext: tar.gz
+            client_bin: goose-client
           - label: macos-x64
             runner: macos-13
             node_platform: darwin
@@ -59,6 +68,15 @@ jobs:
             archive_ext: zip
             client_os: windows
             client_arch: amd64
+            client_ext: zip
+            client_bin: goose-client.exe
+          - label: windows-arm64
+            runner: windows-2022
+            node_platform: win
+            node_arch: arm64
+            archive_ext: zip
+            client_os: windows
+            client_arch: arm64
             client_ext: zip
             client_bin: goose-client.exe
 
