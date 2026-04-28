@@ -94,8 +94,6 @@ jobs:
       # ── Download goose-client binary from GooseRelayVPN releases ────────────
       - name: Download goose-client binary
         shell: bash
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           mkdir -p client-bin client-extract
 
@@ -103,22 +101,27 @@ jobs:
           CLIENT_ARCH="${{ matrix.client_arch }}"
           CLIENT_EXT="${{ matrix.client_ext }}"
 
-          # Use gh CLI (pre-installed on all runners) — handles auth and retries
-          gh release download \
-            --repo Kianmhz/GooseRelayVPN \
-            --pattern "*-${CLIENT_OS}-${CLIENT_ARCH}.${CLIENT_EXT}" \
-            --dir client-extract \
-            --clobber
+          # GooseRelayVPN is public — fetch latest tag via API (unauthenticated, 60 req/hr is enough)
+          # Fallback to v1.2.0 if API fails
+          LATEST=$(curl -fsSL "https://api.github.com/repos/Kianmhz/GooseRelayVPN/releases/latest" \
+            -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            | grep '"tag_name"' | head -1 | sed 's/.*"tag_name": *"\([^"]*\)".*/\1/')
+          LATEST="${LATEST:-v1.2.0}"
+          echo "Using GooseRelayVPN ${LATEST}"
+
+          ASSET="GooseRelayVPN-client-${LATEST}-${CLIENT_OS}-${CLIENT_ARCH}.${CLIENT_EXT}"
+          URL="https://github.com/Kianmhz/GooseRelayVPN/releases/download/${LATEST}/${ASSET}"
+          echo "Downloading: $URL"
+          curl -fsSL -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            "$URL" -o "client-bundle.${CLIENT_EXT}"
 
           if [ "$CLIENT_EXT" = "zip" ]; then
-            ZIPFILE=$(find client-extract -name "*.zip" | head -1)
-            unzip -q "$ZIPFILE" -d client-extract/unzipped
-            find client-extract/unzipped -name "goose-client.exe" -o -name "goose-client" | head -1 \
+            unzip -q "client-bundle.zip" -d client-extract/unzipped
+            find client-extract/unzipped -name "goose-client.exe" | head -1 \
               | xargs -I{} cp {} client-bin/goose-client.exe
           else
-            TARFILE=$(find client-extract -name "*.tar.gz" | head -1)
-            tar xzf "$TARFILE" -C client-extract
-            find client-extract -name "goose-client" -type f | grep -v "\.tar" | head -1 \
+            tar xzf "client-bundle.tar.gz" -C client-extract
+            find client-extract -name "goose-client" -type f | head -1 \
               | xargs -I{} cp {} client-bin/goose-client
             chmod +x client-bin/goose-client
           fi
