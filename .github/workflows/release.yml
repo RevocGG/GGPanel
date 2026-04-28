@@ -108,13 +108,13 @@ jobs:
           echo "Downloading: $URL"
           curl -fsSL "$URL" -o "client-bundle.${CLIENT_EXT}"
 
-          mkdir -p client-bin
+          mkdir -p client-bin client-extract
           if [ "$CLIENT_EXT" = "zip" ]; then
             unzip -q "client-bundle.zip" -d client-extract
-            find client-extract -name "goose-client*" -not -name "*.gz" | head -1 | xargs -I{} cp {} client-bin/goose-client.exe
+            find client-extract -name "goose-client*" ! -name "*.gz" ! -name "*.tar" | head -1 | xargs -I{} cp {} client-bin/goose-client.exe
           else
-            tar xzf "client-bundle.tar.gz" -C client-extract 2>/dev/null || (mkdir -p client-extract && tar xzf "client-bundle.tar.gz" -C client-extract)
-            find client-extract -name "goose-client" | head -1 | xargs -I{} cp {} client-bin/goose-client
+            tar xzf "client-bundle.tar.gz" -C client-extract
+            find client-extract -name "goose-client" -type f | head -1 | xargs -I{} cp {} client-bin/goose-client
             chmod +x client-bin/goose-client
           fi
           echo "CLIENT_BIN=$(ls client-bin/)" >> "$GITHUB_ENV"
