@@ -10,38 +10,36 @@ export default function LoginPage() {
   const [showPass, setShowPass] = useState(false)
 
   return (
-    <div className="min-h-screen bg-bg-base bg-grid bg-radial-glow flex items-center justify-center p-4">
-      {/* Background decorative orbs */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-1/4 left-1/4 w-96 h-96 rounded-full bg-primary/5 blur-3xl" />
-        <div className="absolute bottom-1/4 right-1/4 w-80 h-80 rounded-full bg-secondary/5 blur-3xl" />
-      </div>
+    <div className="min-h-screen bg-bg-base bg-grid flex items-center justify-center p-4">
+      {/* Background decorative scanlines */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none" style={{backgroundImage: 'repeating-linear-gradient(0deg, transparent, transparent 3px, rgba(100,60,35,0.02) 3px, rgba(100,60,35,0.02) 4px)'}} />
 
-      <div className="relative w-full max-w-md">
+      <div className="relative w-full max-w-sm">
         {/* Card */}
-        <div className="glass-elevated rounded-2xl p-8 glow-primary">
+        <div className="glass corner-accent p-7">
           {/* Logo */}
-          <div className="flex flex-col items-center mb-8">
-            <div className="w-16 h-16 rounded-2xl bg-primary/10 border border-primary/30 flex items-center justify-center mb-4 glow-primary">
-              <Shield className="w-8 h-8 text-primary" />
+          <div className="flex flex-col items-center mb-7">
+            <div className="w-12 h-12 flex items-center justify-center mb-4" style={{border:'1px solid rgba(196,75,42,0.5)', background:'rgba(196,75,42,0.06)'}}>
+              <Shield className="w-6 h-6 text-primary" />
             </div>
-            <h1 className="text-2xl font-bold neon-text tracking-wider">GGoose</h1>
-            <p className="text-text-muted text-sm mt-1">Management Console</p>
+            <p className="section-label mb-0.5">Secure Access</p>
+            <h1 className="text-base font-bold neon-text tracking-widest uppercase">GGoose</h1>
+            <p className="text-text-dim text-xs mt-1 tracking-widest uppercase" style={{fontSize:'0.55rem'}}>Management Console</p>
           </div>
 
           {/* Form */}
           <form action={action} className="space-y-4">
             {/* Error message */}
             {state?.error && (
-              <div className="bg-danger/10 border border-danger/30 rounded-lg px-4 py-3 text-danger text-sm text-center">
+              <div className="alert-banner px-3 py-2 text-danger text-xs text-center tracking-wider uppercase font-bold">
                 {state.error}
               </div>
             )}
 
             {/* Username */}
-            <div className="space-y-1.5">
-              <label className="text-text-muted text-xs font-medium uppercase tracking-wider" htmlFor="username">
-                Username
+            <div className="space-y-1">
+              <label className="text-text-dim text-xs font-bold tracking-widest uppercase" style={{fontSize:'0.6rem'}} htmlFor="username">
+                Identifier
               </label>
               <input
                 id="username"
@@ -50,15 +48,15 @@ export default function LoginPage() {
                 autoComplete="username"
                 required
                 disabled={isPending}
-                className="w-full bg-bg-surface/50 border border-border hover:border-border-hover focus:border-primary rounded-lg px-4 py-3 text-text-base text-sm transition-colors placeholder:text-text-muted disabled:opacity-50"
-                placeholder="admin"
+                className="w-full bg-bg-elevated border border-border hover:border-primary/40 focus:border-primary px-3 py-2.5 text-text-base text-xs font-mono tracking-wider transition-colors placeholder:text-text-dim disabled:opacity-50"
+                placeholder="ENTER IDENTIFIER..."
               />
             </div>
 
             {/* Password */}
-            <div className="space-y-1.5">
-              <label className="text-text-muted text-xs font-medium uppercase tracking-wider" htmlFor="password">
-                Password
+            <div className="space-y-1">
+              <label className="text-text-dim text-xs font-bold tracking-widest uppercase" style={{fontSize:'0.6rem'}} htmlFor="password">
+                Access Code
               </label>
               <div className="relative">
                 <input
@@ -68,7 +66,7 @@ export default function LoginPage() {
                   autoComplete="current-password"
                   required
                   disabled={isPending}
-                  className="w-full bg-bg-surface/50 border border-border hover:border-border-hover focus:border-primary rounded-lg px-4 py-3 pr-11 text-text-base text-sm transition-colors placeholder:text-text-muted disabled:opacity-50"
+                  className="w-full bg-bg-elevated border border-border hover:border-primary/40 focus:border-primary px-3 py-2.5 pr-10 text-text-base text-xs font-mono tracking-wider transition-colors placeholder:text-text-dim disabled:opacity-50"
                   placeholder="••••••••"
                 />
                 <button
@@ -76,7 +74,7 @@ export default function LoginPage() {
                   onClick={() => setShowPass(!showPass)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-base transition-colors"
                 >
-                  {showPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  {showPass ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
                 </button>
               </div>
             </div>
@@ -85,15 +83,15 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={isPending}
-              className="w-full mt-6 bg-primary hover:bg-primary/90 text-bg-base font-semibold rounded-lg py-3 text-sm transition-all duration-200 glow-primary disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              className="w-full mt-5 bg-primary border border-primary/70 text-white font-bold tracking-widest uppercase text-xs py-2.5 transition-all btn-hover glow-primary disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
               {isPending ? (
                 <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
                   Authenticating…
                 </>
               ) : (
-                'Sign In'
+                'Authenticate'
               )}
             </button>
           </form>

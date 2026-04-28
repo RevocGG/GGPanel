@@ -11,15 +11,16 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 
 const CreateSchema = z.object({
-  name: z.string().min(1, 'Required').max(64),
+  name: z.string().min(1, 'Name is required').max(64),
   description: z.string().max(256).optional(),
-  binaryPath: z.string().min(1, 'Binary required'),
-  socksHost: z.string().default('127.0.0.1'),
+  binaryPath: z.string().min(1, 'Binary is required'),
+  socksHost: z.string().min(1, 'Required').default('127.0.0.1'),
   socksPort: z.coerce.number().int().min(1).max(65535).default(1080),
-  googleHost: z.string().default('216.239.38.120'),
-  sni: z.string().default('www.google.com'),
-  scriptKeys: z.array(z.object({ value: z.string().min(1) })).default([]),
-  tunnelKey: z.string().default(''),
+  googleHost: z.string().min(1, 'Required').default('216.239.38.120'),
+  sni: z.string().min(1, 'Required').default('www.google.com'),
+  scriptKeys: z.array(z.object({ value: z.string().min(1, 'Cannot be empty') }))
+    .min(1, 'At least one script key is required'),
+  tunnelKey: z.string().min(1, 'Tunnel key is required'),
 })
 
 type CreateFormData = z.infer<typeof CreateSchema>
@@ -27,9 +28,19 @@ type CreateFormData = z.infer<typeof CreateSchema>
 interface Props {
   binaries: string[]
   onClose: () => void
+  prefill?: {
+    name?: string
+    binaryPath?: string
+    socksHost?: string
+    socksPort?: number
+    googleHost?: string
+    sni?: string
+    scriptKeys?: string[]
+    tunnelKey?: string
+  }
 }
 
-export function CreateCoreDialog({ binaries, onClose }: Props) {
+export function CreateCoreDialog({ binaries, onClose, prefill }: Props) {
   const [saving, setSaving] = useState(false)
   const router = useRouter()
 
@@ -41,13 +52,16 @@ export function CreateCoreDialog({ binaries, onClose }: Props) {
   } = useForm<CreateFormData>({
     resolver: zodResolver(CreateSchema),
     defaultValues: {
-      socksHost: '127.0.0.1',
-      socksPort: 1080,
-      googleHost: '216.239.38.120',
-      sni: 'www.google.com',
-      binaryPath: binaries[0] ?? '',
-      scriptKeys: [],
-      tunnelKey: '',
+      name: prefill?.name ?? '',
+      socksHost: prefill?.socksHost ?? '127.0.0.1',
+      socksPort: prefill?.socksPort ?? 1080,
+      googleHost: prefill?.googleHost ?? '216.239.38.120',
+      sni: prefill?.sni ?? 'www.google.com',
+      binaryPath: prefill?.binaryPath ?? binaries[0] ?? '',
+      scriptKeys: prefill?.scriptKeys?.length
+        ? prefill.scriptKeys.map((v) => ({ value: v }))
+        : [{ value: '' }],
+      tunnelKey: prefill?.tunnelKey ?? '',
     },
   })
 
@@ -87,7 +101,7 @@ export function CreateCoreDialog({ binaries, onClose }: Props) {
       {/* Dialog */}
       <div className="relative glass rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between p-5 border-b border-border">
-          <h2 className="text-base font-semibold text-text-base">Create Core</h2>
+          <h2 className="text-base font-semibold text-text-base">{prefill ? 'Clone Core' : 'Create Core'}</h2>
           <button
             onClick={onClose}
             className="w-8 h-8 flex items-center justify-center rounded-lg text-text-muted hover:text-text-base hover:bg-bg-elevated transition-colors"
@@ -134,7 +148,11 @@ export function CreateCoreDialog({ binaries, onClose }: Props) {
             {fields.map((f, i) => (
               <div key={f.id} className="flex gap-2 items-start">
                 <div className="flex-1">
-                  <Input placeholder="AKfycb..." {...register(`scriptKeys.${i}.value`)} />
+                  <Input
+                    placeholder="AKfycb..."
+                    error={errors.scriptKeys?.[i]?.value?.message}
+                    {...register(`scriptKeys.${i}.value`)}
+                  />
                 </div>
                 <button
                   type="button"
@@ -145,18 +163,25 @@ export function CreateCoreDialog({ binaries, onClose }: Props) {
                 </button>
               </div>
             ))}
+            {errors.scriptKeys?.root?.message && (
+              <p className="text-xs text-danger">{errors.scriptKeys.root.message}</p>
+            )}
+            {typeof errors.scriptKeys?.message === 'string' && (
+              <p className="text-xs text-danger">{errors.scriptKeys.message}</p>
+            )}
           </div>
 
           <Input
             label="Tunnel Key"
             type="password"
-            placeholder="Leave blank to set later"
+            placeholder="Required"
+            error={errors.tunnelKey?.message}
             {...register('tunnelKey')}
           />
 
           <div className="flex justify-end gap-3 pt-2 border-t border-border">
             <Button type="button" variant="ghost" onClick={onClose}>Cancel</Button>
-            <Button type="submit" loading={saving}>Create Core</Button>
+            <Button type="submit" loading={saving}>{prefill ? 'Clone Core' : 'Create Core'}</Button>
           </div>
         </form>
       </div>

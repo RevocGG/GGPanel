@@ -89,13 +89,13 @@ export function ConfigForm({ coreId, binaries, defaultValues, onSaved }: Props) 
   }
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+    <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
       {/* Binary */}
-      <div className="flex flex-col gap-1.5">
-        <label className="text-xs font-medium text-text-muted">Binary</label>
+      <div className="flex flex-col gap-1">
+        <label className="text-xs font-bold text-text-dim tracking-widest uppercase" style={{fontSize:'0.6rem'}}>Binary</label>
         <select
           {...register('binaryPath')}
-          className="h-9 w-full rounded-lg border border-border bg-bg-elevated px-3 text-sm text-text-base focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/30 transition-colors"
+          className="h-8 w-full border border-border bg-bg-elevated px-3 text-xs text-text-base focus:outline-none focus:border-primary transition-colors font-mono"
         >
           {binaries.length === 0 ? (
             <option value="">No binaries in data/cores/</option>
@@ -138,7 +138,7 @@ export function ConfigForm({ coreId, binaries, defaultValues, onSaved }: Props) 
       {/* Script Keys */}
       <div className="space-y-2">
         <div className="flex items-center justify-between">
-          <label className="text-xs font-medium text-text-muted">
+          <label className="text-xs font-bold text-text-dim tracking-widest uppercase" style={{fontSize:'0.6rem'}}>
             Script Keys ({fields.length})
           </label>
           <Button
@@ -147,12 +147,12 @@ export function ConfigForm({ coreId, binaries, defaultValues, onSaved }: Props) 
             size="sm"
             onClick={() => append({ value: '' })}
           >
-            <Plus className="w-3.5 h-3.5" />
+            <Plus className="w-3 h-3" />
             Add key
           </Button>
         </div>
         {fields.length === 0 && (
-          <p className="text-xs text-text-dim italic">No deployment IDs added yet.</p>
+          <p className="text-xs text-text-dim tracking-wider" style={{fontSize:'0.6rem', letterSpacing:'0.08em'}}>NO DEPLOYMENT IDs ADDED YET</p>
         )}
         <div className="space-y-2">
           {fields.map((field, i) => (
@@ -167,9 +167,9 @@ export function ConfigForm({ coreId, binaries, defaultValues, onSaved }: Props) 
               <button
                 type="button"
                 onClick={() => remove(i)}
-                className="h-9 w-9 flex items-center justify-center rounded-lg text-text-muted hover:text-danger hover:bg-danger/10 transition-colors flex-shrink-0"
+                className="h-8 w-8 flex items-center justify-center text-text-muted hover:text-danger hover:bg-danger/10 transition-colors flex-shrink-0 border border-transparent hover:border-danger/30"
               >
-                <Trash2 className="w-4 h-4" />
+                <Trash2 className="w-3.5 h-3.5" />
               </button>
             </div>
           ))}
@@ -177,15 +177,16 @@ export function ConfigForm({ coreId, binaries, defaultValues, onSaved }: Props) 
       </div>
 
       {/* Tunnel Key */}
-      <div className="space-y-1.5">
+      <div className="space-y-1">
         <div className="flex items-center justify-between">
-          <label className="text-xs font-medium text-text-muted">Tunnel Key</label>
+          <label className="text-xs font-bold text-text-dim tracking-widest uppercase" style={{fontSize:'0.6rem'}}>Tunnel Key</label>
           <button
             type="button"
-            className="text-xs text-primary hover:text-primary/80 flex items-center gap-1 transition-colors"
+            className="text-xs text-primary hover:text-primary/80 flex items-center gap-1 transition-colors font-bold tracking-wider uppercase btn-hover"
+            style={{fontSize:'0.6rem'}}
             onClick={() => setValue('tunnelKey', generateKey(), { shouldDirty: true })}
           >
-            <RefreshCw className="w-3 h-3" />
+            <RefreshCw className="w-2.5 h-2.5" />
             Generate
           </button>
         </div>
@@ -195,8 +196,8 @@ export function ConfigForm({ coreId, binaries, defaultValues, onSaved }: Props) 
           error={errors.tunnelKey?.message}
           {...register('tunnelKey')}
         />
-        <p className="text-xs text-text-dim">
-          Must match the key configured on the VPS server. Never share this value.
+        <p className="text-text-dim" style={{fontSize:'0.6rem', letterSpacing:'0.06em'}}>
+          Must match the key on the VPS server. Never share.
         </p>
       </div>
 

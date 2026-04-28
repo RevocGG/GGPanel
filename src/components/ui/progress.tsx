@@ -12,7 +12,7 @@ export function Progress({ value, className, barClassName, size = 'sm' }: Progre
   return (
     <div
       className={cn(
-        'w-full rounded-full bg-bg-elevated overflow-hidden progress-glow',
+        'w-full bg-bg-elevated overflow-hidden progress-glow',
         size === 'sm' ? 'h-1' : 'h-2',
         className
       )}
@@ -22,7 +22,7 @@ export function Progress({ value, className, barClassName, size = 'sm' }: Progre
       aria-valuemax={100}
     >
       <div
-        className={cn('h-full rounded-full transition-all duration-500', barClassName ?? 'bg-primary glow-primary')}
+        className={cn('h-full transition-all duration-500', barClassName ?? 'bg-primary glow-primary')}
         style={{ width: `${clamped}%` }}
       />
     </div>

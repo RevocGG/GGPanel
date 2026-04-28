@@ -122,23 +122,24 @@ export function CoreDetailClient({ core, binaries, quota, initialLogs }: Props) 
   ]
 
   return (
-    <div className="space-y-6 max-w-4xl mx-auto">
+    <div className="space-y-5 max-w-4xl mx-auto">
       {/* Back + header */}
       <div>
         <Link
           href="/dashboard/cores"
-          className="inline-flex items-center gap-1.5 text-sm text-text-muted hover:text-primary transition-colors mb-4"
+          className="inline-flex items-center gap-1.5 text-xs text-text-muted hover:text-primary transition-colors mb-3 font-bold tracking-widest uppercase btn-hover"
         >
-          <ArrowLeft className="w-3.5 h-3.5" />
+          <ArrowLeft className="w-3 h-3" />
           All Cores
         </Link>
 
-        <div className="flex items-start justify-between gap-4 flex-wrap">
+        <div className="flex items-start justify-between gap-4 flex-wrap" style={{borderBottom:'1px solid rgba(100,60,35,0.4)', paddingBottom:'12px'}}>
           <div className="flex items-center gap-3">
             <div>
-              <h1 className="text-2xl font-bold text-text-base">{core.name}</h1>
+              <p className="section-label mb-0.5">Core Unit</p>
+              <h1 className="text-lg font-bold text-text-base tracking-widest uppercase">{core.name}</h1>
               {core.description && (
-                <p className="text-text-muted text-sm mt-0.5">{core.description}</p>
+                <p className="text-text-dim text-xs mt-0.5 tracking-wider">{core.description}</p>
               )}
             </div>
             <Badge variant={statusVariant} dot className="mt-1">
@@ -146,14 +147,14 @@ export function CoreDetailClient({ core, binaries, quota, initialLogs }: Props) 
             </Badge>
           </div>
 
-          <div className="flex gap-2">
+          <div className="flex gap-1.5">
             <Button
               variant={isRunning ? 'danger' : 'success'}
               size="sm"
               onClick={handleToggle}
               loading={actionLoading && !deleteConfirm}
             >
-              {isRunning ? <Square className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
+              {isRunning ? <Square className="w-3 h-3" /> : <Play className="w-3 h-3" />}
               {isRunning ? 'Stop' : 'Start'}
             </Button>
             {isRunning && (
@@ -164,18 +165,18 @@ export function CoreDetailClient({ core, binaries, quota, initialLogs }: Props) 
                 loading={restartLoading}
                 title="Restart"
               >
-                <RotateCcw className="w-3.5 h-3.5" />
+                <RotateCcw className="w-3 h-3" />
                 Restart
               </Button>
             )}
             <Button
-              variant={deleteConfirm ? 'danger' : 'outline'}
+              variant={deleteConfirm ? 'danger' : 'ghost'}
               size="sm"
               onClick={handleDelete}
               loading={actionLoading && deleteConfirm}
               onBlur={() => setDeleteConfirm(false)}
             >
-              <Trash2 className="w-3.5 h-3.5" />
+              <Trash2 className="w-3 h-3" />
               {deleteConfirm ? 'Confirm?' : 'Delete'}
             </Button>
           </div>
@@ -184,16 +185,16 @@ export function CoreDetailClient({ core, binaries, quota, initialLogs }: Props) 
 
       {/* Tabs */}
       <div>
-        <div className="flex gap-1 border-b border-border">
+        <div className="flex gap-0" style={{borderBottom:'1px solid rgba(100,60,35,0.4)'}}>
           {tabs.map(({ id, label }) => (
             <button
               key={id}
               onClick={() => setTab(id)}
               className={cn(
-                'px-4 py-2.5 text-sm font-medium transition-colors relative',
+                'px-5 py-2 text-xs font-bold tracking-widest uppercase transition-colors relative border-b-2',
                 tab === id
-                  ? 'text-primary tab-active'
-                  : 'text-text-muted hover:text-text-base'
+                  ? 'text-primary border-primary'
+                  : 'text-text-muted border-transparent hover:text-text-base'
               )}
             >
               {label}
@@ -201,7 +202,7 @@ export function CoreDetailClient({ core, binaries, quota, initialLogs }: Props) 
           ))}
         </div>
 
-        <div className="glass rounded-b-xl rounded-tr-xl p-6 mt-0">
+        <div className="glass p-5 mt-0" style={{borderTop:'none', borderTopLeftRadius:0, borderTopRightRadius:0}}>
           {tab === 'config' && core.config && (
             <ConfigForm
               coreId={core.id}
@@ -219,7 +220,7 @@ export function CoreDetailClient({ core, binaries, quota, initialLogs }: Props) 
             />
           )}
           {tab === 'config' && !core.config && (
-            <p className="text-text-muted text-sm">No configuration found.</p>
+            <p className="text-text-muted text-xs tracking-wider uppercase">No configuration found.</p>
           )}
 
           {tab === 'logs' && (

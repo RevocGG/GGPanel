@@ -7,11 +7,30 @@ import { CoreCard } from '@/components/cores/core-card'
 import { CreateCoreDialog } from '@/components/cores/create-core-dialog'
 import type { QuotaInfo } from '@/types'
 
+type ClonePrefill = {
+  name: string
+  binaryPath: string
+  socksHost?: string
+  socksPort?: number
+  googleHost?: string
+  sni?: string
+  scriptKeys?: string[]
+  tunnelKey?: string
+}
+
 interface CoreItem {
   id: string
   name: string
   status: string
-  config: { socksPort: number; scriptKeys: string } | null
+  binaryPath: string
+  config: {
+    socksPort: number
+    socksHost: string
+    googleHost: string
+    sni: string
+    scriptKeys: string
+    tunnelKey: string
+  } | null
   stats: { todayRequests: number } | null
   quota: QuotaInfo | null
 }
@@ -24,16 +43,32 @@ interface Props {
 
 export function CoresClient({ cores, binaries, mode }: Props) {
   const [dialogOpen, setDialogOpen] = useState(false)
+  const [clonePrefill, setClonePrefill] = useState<ClonePrefill | null>(null)
+
+  function openCreate() {
+    setClonePrefill(null)
+    setDialogOpen(true)
+  }
+
+  function openClone(prefill: ClonePrefill) {
+    setClonePrefill(prefill)
+    setDialogOpen(true)
+  }
+
+  function closeDialog() {
+    setDialogOpen(false)
+    setClonePrefill(null)
+  }
 
   if (mode === 'create-button') {
     return (
       <>
-        <Button onClick={() => setDialogOpen(true)}>
+        <Button onClick={openCreate}>
           <Plus className="w-4 h-4" />
           Create Core
         </Button>
         {dialogOpen && (
-          <CreateCoreDialog binaries={binaries} onClose={() => setDialogOpen(false)} />
+          <CreateCoreDialog binaries={binaries} onClose={closeDialog} prefill={clonePrefill ?? undefined} />
         )}
       </>
     )
@@ -42,12 +77,12 @@ export function CoresClient({ cores, binaries, mode }: Props) {
   if (mode === 'create-button-primary') {
     return (
       <>
-        <Button variant="default" size="lg" onClick={() => setDialogOpen(true)}>
+        <Button variant="default" size="lg" onClick={openCreate}>
           <Plus className="w-4 h-4" />
           Create first core
         </Button>
         {dialogOpen && (
-          <CreateCoreDialog binaries={binaries} onClose={() => setDialogOpen(false)} />
+          <CreateCoreDialog binaries={binaries} onClose={closeDialog} prefill={clonePrefill ?? undefined} />
         )}
       </>
     )
@@ -58,11 +93,11 @@ export function CoresClient({ cores, binaries, mode }: Props) {
     <>
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {cores.map((core) => (
-          <CoreCard key={core.id} core={core} />
+          <CoreCard key={core.id} core={core} onClone={openClone} />
         ))}
       </div>
       {dialogOpen && (
-        <CreateCoreDialog binaries={binaries} onClose={() => setDialogOpen(false)} />
+        <CreateCoreDialog binaries={binaries} onClose={closeDialog} prefill={clonePrefill ?? undefined} />
       )}
     </>
   )

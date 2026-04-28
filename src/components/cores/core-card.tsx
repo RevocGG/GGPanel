@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
-import { Play, Square, Settings, RotateCcw, Terminal, ChevronDown, ChevronUp } from 'lucide-react'
+import { Play, Square, Settings, RotateCcw, Terminal, ChevronDown, ChevronUp, Copy } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
@@ -17,12 +17,45 @@ interface Props {
     id: string
     name: string
     status: string
-    config: { socksPort: number; scriptKeys: string } | null
+    binaryPath: string
+    config: {
+      socksPort: number
+      socksHost: string
+      googleHost: string
+      sni: string
+      scriptKeys: string
+      tunnelKey: string
+    } | null
     quota: QuotaInfo | null
   }
+  onClone?: (prefill: {
+    name: string
+    binaryPath: string
+    socksHost?: string
+    socksPort?: number
+    googleHost?: string
+    sni?: string
+    scriptKeys?: string[]
+    tunnelKey?: string
+  }) => void
 }
 
-export function CoreCard({ core }: Props) {
+export function CoreCard({ core, onClone }: Props) {
+  function handleClone() {
+    if (!onClone) return
+    let parsedKeys: string[] = []
+    try { parsedKeys = JSON.parse(core.config?.scriptKeys ?? '[]') } catch { }
+    onClone({
+      name: `Copy of ${core.name}`,
+      binaryPath: core.binaryPath,
+      socksHost: core.config?.socksHost,
+      socksPort: core.config?.socksPort,
+      googleHost: core.config?.googleHost,
+      sni: core.config?.sni,
+      scriptKeys: parsedKeys,
+      tunnelKey: core.config?.tunnelKey,
+    })
+  }
   const [loading, setLoading] = useState(false)
   const [restartLoading, setRestartLoading] = useState(false)
   const [showLogs, setShowLogs] = useState(false)
@@ -66,16 +99,19 @@ export function CoreCard({ core }: Props) {
 
   return (
     <div className={cn(
-      'glass rounded-xl flex flex-col gap-0 overflow-hidden card-hover',
-      isRunning && 'border-cyan-500/25',
-      core.status === 'error' && 'border-red-500/25',
+      'glass corner-accent flex flex-col gap-0 overflow-hidden card-hover',
+      isRunning && 'border-l-2 border-l-success/50',
+      core.status === 'error' && 'border-l-2 border-l-danger/50',
     )}>
       {/* Header */}
-      <div className="p-5 flex flex-col gap-4">
+      <div className="p-4 flex flex-col gap-3">
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0 flex-1">
-            <h3 className="font-semibold text-text-base text-sm truncate">{core.name}</h3>
-            <p className="text-text-muted text-xs mt-0.5 font-mono">
+            <div className="flex items-center gap-2">
+              <div className={`w-1.5 h-1.5 flex-shrink-0 ${isRunning ? 'bg-success status-dot-running' : 'bg-text-dim'}`} />
+              <h3 className="font-bold text-text-base text-xs tracking-wider uppercase truncate">{core.name}</h3>
+            </div>
+            <p className="text-text-dim text-xs mt-0.5 font-mono pl-3.5">
               SOCKS5 :{core.config?.socksPort ?? '—'}
             </p>
           </div>
@@ -87,12 +123,12 @@ export function CoreCard({ core }: Props) {
         {/* Quota */}
         {core.quota ? (
           <div>
-            <div className="flex justify-between text-xs text-text-muted mb-1.5">
-              <span className="font-mono">{formatNumber(core.quota.used)} / {formatNumber(core.quota.total)}</span>
+            <div className="flex justify-between text-xs text-text-muted mb-1">
+              <span className="font-mono" style={{fontSize:'0.6rem'}}>{formatNumber(core.quota.used)} / {formatNumber(core.quota.total)}</span>
               <span className={cn(
-                'font-semibold',
+                'font-bold',
                 core.quota.isDanger ? 'text-danger' :
-                core.quota.isWarning ? 'text-yellow-400' : 'text-primary'
+                core.quota.isWarning ? 'text-warning' : 'text-text-muted'
               )}>
                 {core.quota.percentage}%
               </span>
@@ -101,17 +137,17 @@ export function CoreCard({ core }: Props) {
               value={core.quota.percentage}
               barClassName={cn(
                 core.quota.isDanger ? 'bg-danger' :
-                core.quota.isWarning ? 'bg-yellow-400' :
+                core.quota.isWarning ? 'bg-warning' :
                 'bg-primary'
               )}
             />
           </div>
         ) : (
-          <p className="text-xs text-text-dim italic">No stats yet</p>
+          <p className="text-xs text-text-dim" style={{fontSize:'0.6rem', letterSpacing:'0.08em'}}>NO STATS YET</p>
         )}
 
         {/* Actions */}
-        <div className="flex gap-2">
+        <div className="flex gap-1.5">
           <Button
             variant={isRunning ? 'danger' : 'success'}
             size="sm"
@@ -119,7 +155,7 @@ export function CoreCard({ core }: Props) {
             loading={loading || core.status === 'starting'}
             className="flex-1"
           >
-            {isRunning ? <Square className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
+            {isRunning ? <Square className="w-3 h-3" /> : <Play className="w-3 h-3" />}
             {isRunning ? 'Stop' : 'Start'}
           </Button>
           {isRunning && (
@@ -130,7 +166,7 @@ export function CoreCard({ core }: Props) {
               loading={restartLoading}
               title="Restart"
             >
-              <RotateCcw className="w-3.5 h-3.5" />
+              <RotateCcw className="w-3 h-3" />
             </Button>
           )}
           <Button
@@ -139,12 +175,22 @@ export function CoreCard({ core }: Props) {
             onClick={() => setShowLogs((v) => !v)}
             title={showLogs ? 'Hide logs' : 'Show logs'}
           >
-            <Terminal className="w-3.5 h-3.5" />
+            <Terminal className="w-3 h-3" />
             {showLogs ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
           </Button>
+          {onClone && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleClone}
+              title="Clone this core"
+            >
+              <Copy className="w-3 h-3" />
+            </Button>
+          )}
           <Link href={`/dashboard/cores/${core.id}`}>
             <Button variant="outline" size="sm" title="Settings">
-              <Settings className="w-3.5 h-3.5" />
+              <Settings className="w-3 h-3" />
             </Button>
           </Link>
         </div>
@@ -152,7 +198,7 @@ export function CoreCard({ core }: Props) {
 
       {/* Inline log panel */}
       {showLogs && (
-        <div className="border-t border-border px-4 pb-4 pt-3 bg-[#030812]">
+        <div className="terminal-bg px-3 pb-3 pt-2" style={{borderTop: '1px solid rgba(100,60,35,0.35)'}}>
           <LogViewer coreId={core.id} isRunning={isRunning} compact />
         </div>
       )}

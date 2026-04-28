@@ -1,0 +1,257 @@
+name: Build & Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  contents: write   # needed to create GitHub Releases
+
+jobs:
+  build:
+    name: Build — ${{ matrix.label }}
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - label: linux-x64
+            runner: ubuntu-22.04
+            node_platform: linux
+            node_arch: x64
+            archive_ext: tar.gz
+            client_os: linux
+            client_arch: amd64
+            client_ext: tar.gz
+            client_bin: goose-client
+          - label: linux-arm64
+            runner: ubuntu-22.04
+            node_platform: linux
+            node_arch: arm64
+            archive_ext: tar.gz
+            client_os: linux
+            client_arch: arm64
+            client_ext: tar.gz
+            client_bin: goose-client
+          - label: macos-x64
+            runner: macos-13
+            node_platform: darwin
+            node_arch: x64
+            archive_ext: tar.gz
+            client_os: darwin
+            client_arch: amd64
+            client_ext: tar.gz
+            client_bin: goose-client
+          - label: macos-arm64
+            runner: macos-14
+            node_platform: darwin
+            node_arch: arm64
+            archive_ext: tar.gz
+            client_os: darwin
+            client_arch: arm64
+            client_ext: tar.gz
+            client_bin: goose-client
+          - label: windows-x64
+            runner: windows-2022
+            node_platform: win
+            node_arch: x64
+            archive_ext: zip
+            client_os: windows
+            client_arch: amd64
+            client_ext: zip
+            client_bin: goose-client.exe
+
+    steps:
+      # ── Checkout ────────────────────────────────────────────────────────────
+      - uses: actions/checkout@v4
+
+      # ── Node.js (for building) ───────────────────────────────────────────────
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      # ── Install dependencies ─────────────────────────────────────────────────
+      - name: Install dependencies
+        run: npm ci
+
+      # ── Generate Prisma client ───────────────────────────────────────────────
+      - name: Generate Prisma client
+        run: npx prisma generate
+
+      # ── Build Next.js standalone ─────────────────────────────────────────────
+      - name: Build
+        run: npm run build
+        env:
+          NODE_ENV: production
+          # Provide dummy env vars so build succeeds without a real .env
+          ADMIN_USERNAME: build
+          ADMIN_PASSWORD: build
+          AUTH_SECRET: build-placeholder
+          DATABASE_URL: file:./data/goose.db
+
+      # ── Download goose-client binary from GooseRelayVPN releases ────────────
+      - name: Download goose-client binary
+        shell: bash
+        run: |
+          # Fetch latest release tag from GooseRelayVPN
+          LATEST=$(curl -fsSL "https://api.github.com/repos/Kianmhz/GooseRelayVPN/releases/latest" \
+            | grep '"tag_name"' | head -1 | sed 's/.*"tag_name": *"\([^"]*\)".*/\1/')
+          echo "GooseRelayVPN latest: $LATEST"
+
+          CLIENT_OS="${{ matrix.client_os }}"
+          CLIENT_ARCH="${{ matrix.client_arch }}"
+          CLIENT_EXT="${{ matrix.client_ext }}"
+          ASSET="GooseRelayVPN-client-${LATEST}-${CLIENT_OS}-${CLIENT_ARCH}.${CLIENT_EXT}"
+          URL="https://github.com/Kianmhz/GooseRelayVPN/releases/download/${LATEST}/${ASSET}"
+          echo "Downloading: $URL"
+          curl -fsSL "$URL" -o "client-bundle.${CLIENT_EXT}"
+
+          mkdir -p client-bin
+          if [ "$CLIENT_EXT" = "zip" ]; then
+            unzip -q "client-bundle.zip" -d client-extract
+            find client-extract -name "goose-client*" -not -name "*.gz" | head -1 | xargs -I{} cp {} client-bin/goose-client.exe
+          else
+            tar xzf "client-bundle.tar.gz" -C client-extract 2>/dev/null || (mkdir -p client-extract && tar xzf "client-bundle.tar.gz" -C client-extract)
+            find client-extract -name "goose-client" | head -1 | xargs -I{} cp {} client-bin/goose-client
+            chmod +x client-bin/goose-client
+          fi
+          echo "CLIENT_BIN=$(ls client-bin/)" >> "$GITHUB_ENV"
+
+      # ── Download Node.js binary for target platform ──────────────────────────
+      - name: Download bundled Node.js
+        shell: bash
+        run: |
+          NODE_VERSION="22.15.0"
+          PLATFORM="${{ matrix.node_platform }}"
+          ARCH="${{ matrix.node_arch }}"
+
+          if [ "$PLATFORM" = "win" ]; then
+            URL="https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-win-${ARCH}.zip"
+            curl -fsSL "$URL" -o node-bundle.zip
+            unzip -q node-bundle.zip
+            cp "node-v${NODE_VERSION}-win-${ARCH}/node.exe" node-bundle.exe
+          else
+            URL="https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-${PLATFORM}-${ARCH}.tar.gz"
+            curl -fsSL "$URL" | tar xz
+            cp "node-v${NODE_VERSION}-${PLATFORM}-${ARCH}/bin/node" node-bundle
+            chmod +x node-bundle
+          fi
+
+      # ── Assemble release bundle ──────────────────────────────────────────────
+      - name: Assemble bundle
+        shell: bash
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          BUNDLE="ggoose-ui-${TAG}-${{ matrix.label }}"
+          mkdir -p "$BUNDLE"
+
+          # Next.js standalone server
+          cp -r .next/standalone/. "$BUNDLE/"
+          # Static assets (Next.js requires these next to the server)
+          mkdir -p "$BUNDLE/.next/static"
+          cp -r .next/static/. "$BUNDLE/.next/static/"
+          # Public folder
+          [ -d public ] && cp -r public/. "$BUNDLE/public/" || true
+
+          # Our helper scripts
+          cp scripts/setup.js "$BUNDLE/setup.js"
+
+          # node_modules needed by setup.js (@libsql/client is a native module
+          # that Next.js standalone does NOT bundle — we copy it explicitly)
+          mkdir -p "$BUNDLE/node_modules"
+          for pkg in @libsql libsql @prisma; do
+            if [ -d "node_modules/$pkg" ]; then
+              cp -r "node_modules/$pkg" "$BUNDLE/node_modules/$pkg"
+            fi
+          done
+
+          if [ "${{ matrix.node_platform }}" = "win" ]; then
+            cp scripts/install.bat "$BUNDLE/install.bat"
+            cp scripts/start.bat   "$BUNDLE/start.bat"
+            cp node-bundle.exe     "$BUNDLE/node.exe"
+          else
+            cp scripts/install-offline.sh "$BUNDLE/install-offline.sh"
+            cp scripts/start.sh           "$BUNDLE/start.sh"
+            cp node-bundle                "$BUNDLE/node"
+            chmod +x "$BUNDLE/install-offline.sh" "$BUNDLE/start.sh" "$BUNDLE/node"
+          fi
+
+          cp .env.example "$BUNDLE/.env.example"
+
+          # Prisma migrations (needed by setup.js via @libsql/client)
+          cp -r prisma "$BUNDLE/prisma"
+
+          # Include goose-client binary so users don't need to download it manually
+          mkdir -p "$BUNDLE/data/cores"
+          if [ "${{ matrix.node_platform }}" = "win" ]; then
+            cp client-bin/goose-client.exe "$BUNDLE/data/cores/goose-client.exe"
+          else
+            cp client-bin/goose-client "$BUNDLE/data/cores/goose-client"
+            chmod +x "$BUNDLE/data/cores/goose-client"
+          fi
+
+          echo "BUNDLE=$BUNDLE" >> "$GITHUB_ENV"
+
+      # ── Create archive ───────────────────────────────────────────────────────
+      - name: Create archive (tar.gz)
+        if: matrix.archive_ext == 'tar.gz'
+        run: tar czf "${{ env.BUNDLE }}.tar.gz" "${{ env.BUNDLE }}"
+
+      - name: Create archive (zip — Windows)
+        if: matrix.archive_ext == 'zip'
+        shell: pwsh
+        run: Compress-Archive -Path "${{ env.BUNDLE }}" -DestinationPath "${{ env.BUNDLE }}.zip"
+
+      # ── Upload artifact ──────────────────────────────────────────────────────
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.BUNDLE }}
+          path: ${{ env.BUNDLE }}.${{ matrix.archive_ext }}
+          if-no-files-found: error
+
+  # ── Create GitHub Release with all artifacts ─────────────────────────────────
+  release:
+    name: Publish Release
+    needs: build
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist/
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: GGoose UI ${{ github.ref_name }}
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+          files: dist/**/*
+          body: |
+            ## Installation (Offline / Air-gapped)
+
+            No internet, npm, or Node.js required on the target server.
+            The **goose-client** proxy binary is pre-bundled — no separate download needed.
+
+            ### Linux / macOS
+            ```bash
+            tar xzf ggoose-ui-${{ github.ref_name }}-linux-x64.tar.gz
+            cd ggoose-ui-${{ github.ref_name }}-linux-x64
+            ./install-offline.sh       # first-time setup
+            ./start.sh                 # start the server
+            ```
+
+            ### Windows
+            1. Extract the `.zip` file
+            2. Double-click **install.bat** (first-time setup)
+            3. Double-click **start.bat** to start the server
+
+            ### After setup
+            - Open `http://SERVER_IP:3000` in your browser

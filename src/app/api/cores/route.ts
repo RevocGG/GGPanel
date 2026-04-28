@@ -21,7 +21,20 @@ export async function GET() {
       include: { config: true, stats: true },
       orderBy: { createdAt: 'desc' },
     })
-    return NextResponse.json({ data: cores })
+    // Override DB status and stats with live process-manager state so UI is always accurate
+    const { processManager } = await import('@/lib/process-manager')
+    const patched = cores.map((c) => {
+      const liveCount = processManager.getLiveRequestCount(c.id)
+      const liveRunning = processManager.isRunning(c.id)
+      return {
+        ...c,
+        status: liveRunning && c.status !== 'running' ? 'running' : c.status,
+        stats: c.stats && liveCount !== null
+          ? { ...c.stats, todayRequests: c.stats.todayRequests + liveCount }
+          : c.stats,
+      }
+    })
+    return NextResponse.json({ data: patched })
   } catch {
     return NextResponse.json({ error: 'Failed to fetch cores' }, { status: 500 })
   }

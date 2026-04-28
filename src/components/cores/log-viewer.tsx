@@ -19,12 +19,12 @@ interface LogViewerProps {
   compact?: boolean
 }
 
-// ANSI escape code → Tailwind color map
+// ANSI escape code → color map (warm/rust palette)
 const ANSI_COLORS: Record<number, string> = {
-  30: '#64748B', 31: '#EF4444', 32: '#10B981', 33: '#F59E0B',
-  34: '#60A5FA', 35: '#A855F7', 36: '#22D3EE', 37: '#E2E8F0',
-  90: '#475569', 91: '#F87171', 92: '#34D399', 93: '#FCD34D',
-  94: '#93C5FD', 95: '#C084FC', 96: '#67E8F9', 97: '#F1F5F9',
+  30: '#50443A', 31: '#C04030', 32: '#5A8A38', 33: '#C08A20',
+  34: '#4A6A8A', 35: '#8A4A6A', 36: '#3A8A7A', 37: '#C8B8A0',
+  90: '#6A5A50', 91: '#E06050', 92: '#7AB050', 93: '#E0B040',
+  94: '#6A8ABA', 95: '#B06A9A', 96: '#50B0A0', 97: '#E8D8C0',
 }
 
 /** Parse ANSI escape codes into React-renderable spans */
@@ -74,9 +74,9 @@ function parseAnsi(raw: string): React.ReactNode[] {
 }
 
 function levelBadgeStyle(level: string) {
-  if (level === 'error') return 'bg-red-500/20 text-red-400 border-red-500/30'
-  if (level === 'warn') return 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30'
-  return 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20'
+  if (level === 'error') return 'bg-danger/15 text-danger border-danger/30'
+  if (level === 'warn') return 'bg-warning/15 text-warning border-warning/30'
+  return 'bg-bg-elevated text-text-muted border-border'
 }
 
 export function LogViewer({ coreId, initialLogs = [], isRunning, compact = false }: LogViewerProps) {
@@ -146,11 +146,11 @@ export function LogViewer({ coreId, initialLogs = [], isRunning, compact = false
       {/* Toolbar */}
       <div className="flex items-center justify-between mb-2 gap-2 flex-wrap">
         <div className="flex items-center gap-2">
-          <Terminal className="w-3.5 h-3.5 text-cyan-400" />
+          <Terminal className="w-3.5 h-3.5 text-primary" />
           <span className="text-xs text-text-muted font-mono">
             {logs.length} lines
             {isRunning && !paused && (
-              <span className="ml-2 text-cyan-400 animate-pulse">● LIVE</span>
+              <span className="ml-2 text-primary animate-pulse">● LIVE</span>
             )}
           </span>
         </div>
@@ -175,33 +175,32 @@ export function LogViewer({ coreId, initialLogs = [], isRunning, compact = false
 
       {/* Log output — terminal style */}
       <div className={cn(
-        'log-viewer flex-1 overflow-y-auto rounded-xl p-3 text-xs',
-        'bg-[#050B1F] border border-cyan-500/10',
+        'log-viewer flex-1 overflow-y-auto p-3 text-xs terminal-bg',
         compact ? 'min-h-40 max-h-56' : 'min-h-64 max-h-[520px]'
       )}>
         {logs.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-24 gap-2 text-slate-600">
+          <div className="flex flex-col items-center justify-center h-24 gap-2 text-text-dim">
             <Terminal className="w-6 h-6" />
-            <p className="text-xs">Waiting for output…</p>
+            <p className="text-xs tracking-widest uppercase" style={{fontSize:'0.6rem'}}>Waiting for output…</p>
           </div>
         ) : (
           logs.map((log, i) => (
             <div key={i} className={cn(
-              'flex gap-2 px-1.5 py-0.5 rounded leading-5 group hover:bg-white/[0.03]',
+              'flex gap-2 px-1 py-0.5 leading-5 group hover:bg-white/[0.02]',
             )}>
               {/* Time */}
-              <span className="text-slate-600 flex-shrink-0 font-mono tabular-nums w-[68px]">
+              <span className="text-text-dim flex-shrink-0 font-mono tabular-nums w-[68px]">
                 {log.timestamp.slice(11, 19)}
               </span>
               {/* Level badge */}
               <span className={cn(
-                'flex-shrink-0 border rounded px-1 text-[10px] uppercase font-bold leading-4 self-start mt-0.5 w-11 text-center',
+                'flex-shrink-0 border px-1 text-[9px] uppercase font-bold leading-4 self-start mt-0.5 w-11 text-center',
                 levelBadgeStyle(log.level)
               )}>
                 {log.level.slice(0, 4)}
               </span>
               {/* Message with ANSI parsing */}
-              <span className="text-slate-300 break-all">
+              <span className="text-text-base break-all opacity-85">
                 {parseAnsi(log.message)}
               </span>
             </div>

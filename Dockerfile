@@ -39,6 +39,20 @@ COPY --from=builder /app/prisma                           ./prisma
 RUN mkdir -p data/cores data/configs \
  && chown -R nextjs:nodejs data
 
+# Download goose-client binary for linux-amd64 (Docker is always linux)
+RUN apk add --no-cache curl tar \
+ && LATEST=$(curl -fsSL "https://api.github.com/repos/Kianmhz/GooseRelayVPN/releases/latest" \
+      | grep '"tag_name"' | head -1 | sed 's/.*"tag_name": *"\([^"]*\)".*/\1/') \
+ && echo "Downloading GooseRelayVPN-client ${LATEST} linux-amd64" \
+ && curl -fsSL "https://github.com/Kianmhz/GooseRelayVPN/releases/download/${LATEST}/GooseRelayVPN-client-${LATEST}-linux-amd64.tar.gz" \
+      -o /tmp/goose-client.tar.gz \
+ && mkdir -p /tmp/goose-extract \
+ && tar xzf /tmp/goose-client.tar.gz -C /tmp/goose-extract \
+ && find /tmp/goose-extract -name "goose-client" | head -1 | xargs -I{} cp {} data/cores/goose-client \
+ && chmod +x data/cores/goose-client \
+ && rm -rf /tmp/goose-client.tar.gz /tmp/goose-extract \
+ && chown nextjs:nodejs data/cores/goose-client
+
 VOLUME ["/app/data"]
 
 USER nextjs

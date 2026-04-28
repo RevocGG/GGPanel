@@ -56,22 +56,21 @@ export default async function DashboardPage() {
   ]
 
   return (
-    <div className="space-y-8 max-w-6xl mx-auto">
+    <div className="space-y-6 max-w-6xl mx-auto">
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-text-base">Dashboard</h1>
-        <p className="text-text-muted text-sm mt-1">Overview of all managed cores</p>
+      <div style={{borderBottom: '1px solid rgba(100,60,35,0.4)', paddingBottom: '12px'}}>
+        <p className="section-label mb-1">System</p>
+        <h1 className="text-lg font-bold text-text-base tracking-widest uppercase">Dashboard</h1>
+        <p className="text-text-dim text-xs mt-0.5 tracking-wide">Overview of all managed cores</p>
       </div>
 
       {/* Stat cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {statCards.map(({ label, value, icon: Icon, color, bg }) => (
-          <div key={label} className="glass rounded-xl p-5 card-hover">
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-text-muted text-xs font-medium uppercase tracking-wider">{label}</span>
-              <div className={`w-8 h-8 rounded-lg ${bg} flex items-center justify-center glow-primary`}>
-                <Icon className={`w-4 h-4 ${color}`} />
-              </div>
+          <div key={label} className="glass corner-accent p-4 card-hover">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-text-dim text-xs font-bold tracking-widest uppercase" style={{fontSize:'0.55rem'}}>{label}</span>
+              <Icon className={`w-4 h-4 ${color} opacity-70`} />
             </div>
             <p className={`text-2xl font-bold ${color}`}>{value}</p>
           </div>
@@ -80,11 +79,11 @@ export default async function DashboardPage() {
 
       {/* Quota warnings */}
       {criticalCores.length > 0 && (
-        <div className="bg-danger/10 border border-danger/30 rounded-xl p-4 flex items-start gap-3">
-          <AlertTriangle className="w-5 h-5 text-danger flex-shrink-0 mt-0.5" />
+        <div className="alert-banner p-3 flex items-start gap-3">
+          <AlertTriangle className="w-4 h-4 text-danger flex-shrink-0 mt-0.5" />
           <div>
-            <p className="text-danger font-medium text-sm">Quota limit reached</p>
-            <p className="text-text-muted text-sm mt-0.5">
+            <p className="text-danger font-bold text-xs tracking-widest uppercase">Quota limit reached</p>
+            <p className="text-text-muted text-xs mt-1">
               {criticalCores.map((c) => c.name).join(', ')} — daily Google Apps Script quota is almost exhausted.
               Add more deployment IDs or wait for the quota to reset (10:30 AM Iran time).
             </p>
@@ -94,29 +93,29 @@ export default async function DashboardPage() {
 
       {/* Recent cores */}
       <div>
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold text-text-base">Cores</h2>
+        <div className="flex items-center justify-between mb-3">
+          <p className="section-label">Active Cores</p>
           <Link
-            href="/cores"
-            className="text-primary text-sm hover:text-primary/80 transition-colors"
+            href="/dashboard/cores"
+            className="text-primary text-xs hover:text-primary/80 transition-colors tracking-widest uppercase font-bold"
           >
             View all →
           </Link>
         </div>
 
         {allCores.length === 0 ? (
-          <div className="glass rounded-xl p-12 text-center">
-            <Server className="w-10 h-10 text-text-muted mx-auto mb-3" />
-            <p className="text-text-muted">No cores yet.</p>
+          <div className="glass p-12 text-center">
+            <Server className="w-8 h-8 text-text-muted mx-auto mb-3" />
+            <p className="text-text-muted text-xs tracking-wider uppercase">No cores yet.</p>
             <Link
-              href="/cores"
-              className="inline-block mt-3 text-primary text-sm hover:underline"
+              href="/dashboard/cores"
+              className="inline-block mt-3 text-primary text-xs hover:underline tracking-wider uppercase font-bold"
             >
               Create your first core →
             </Link>
           </div>
         ) : (
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
             {allCores.slice(0, 6).map((core) => {
               const keys = core.config ? parseScriptKeys(core.config.scriptKeys) : []
               const quota = core.stats ? calcQuota(core.stats.todayRequests, keys.length) : null
@@ -124,15 +123,15 @@ export default async function DashboardPage() {
 
               return (
                 <Link key={core.id} href={`/dashboard/cores/${core.id}`}>
-                  <div className="glass rounded-xl p-5 card-hover group">
-                    <div className="flex items-start justify-between mb-3">
+                  <div className="glass corner-accent p-4 card-hover group">
+                    <div className="flex items-start justify-between mb-2">
                       <div className="flex items-center gap-2">
-                        <div className={`w-2 h-2 rounded-full ${isRunning ? 'bg-success glow-success status-dot-running' : 'bg-text-muted'}`} />
-                        <span className="font-medium text-text-base text-sm group-hover:text-primary transition-colors">
+                        <div className={`w-1.5 h-1.5 ${isRunning ? 'bg-success status-dot-running' : 'bg-text-muted'}`} />
+                        <span className="font-bold text-text-base text-xs tracking-wider uppercase group-hover:text-primary transition-colors">
                           {core.name}
                         </span>
                       </div>
-                      <span className={`text-xs px-2 py-0.5 rounded-full ${
+                      <span className={`text-xs px-2 py-0.5 ${
                         core.status === 'running' ? 'badge-running' :
                         core.status === 'error' ? 'badge-error' :
                         core.status === 'starting' ? 'badge-starting' :
@@ -142,21 +141,21 @@ export default async function DashboardPage() {
                       </span>
                     </div>
 
-                    <p className="text-text-muted text-xs mb-3">
+                    <p className="text-text-dim text-xs mb-2 font-mono">
                       SOCKS5 :{core.config?.socksPort ?? '—'} · {keys.length} key{keys.length !== 1 ? 's' : ''}
                     </p>
 
                     {quota && (
                       <div>
                         <div className="flex justify-between text-xs text-text-muted mb-1">
-                          <span>Quota today</span>
-                          <span className={quota.isDanger ? 'text-danger' : quota.isWarning ? 'text-warning' : ''}>
+                          <span className="font-mono" style={{fontSize:'0.6rem'}}>Quota</span>
+                          <span className={`font-bold ${quota.isDanger ? 'text-danger' : quota.isWarning ? 'text-warning' : 'text-text-muted'}`}>
                             {quota.percentage}%
                           </span>
                         </div>
-                        <div className="h-1 bg-bg-elevated rounded-full overflow-hidden progress-glow">
+                        <div className="h-1 bg-bg-elevated overflow-hidden progress-glow">
                           <div
-                            className={`h-full rounded-full transition-all ${
+                            className={`h-full transition-all ${
                               quota.isDanger ? 'bg-danger glow-danger' : quota.isWarning ? 'bg-warning glow-accent' : 'bg-primary glow-primary'
                             }`}
                             style={{ width: `${quota.percentage}%` }}

@@ -31,35 +31,48 @@ export async function GET(_req: NextRequest, { params }: Params) {
           }
         })
       } else {
-        // Static — return buffered logs from DB then close
-        db.coreLog
-          .findMany({
-            where: { coreId: id },
-            orderBy: { createdAt: 'asc' },
-            take: 300,
-          })
-          .then((logs) => {
-            for (const log of logs) {
-              const entry = JSON.stringify({
-                level: log.level,
-                message: log.message,
-                timestamp: log.createdAt.toISOString(),
-              })
-              try {
-                controller.enqueue(sendEvent(entry))
-              } catch {
-                break
+        // Check if there are fresh in-memory logs from a process that just died.
+        // If so, serve those immediately (they're more up-to-date than DB).
+        const recentLogs = processManager.getRecentLogs(id)
+        if (recentLogs.length > 0) {
+          for (const entry of recentLogs) {
+            try { controller.enqueue(sendEvent(entry)) } catch { break }
+          }
+          try {
+            controller.enqueue(sendEvent(JSON.stringify({ level: 'info', message: '[ggoose] Core is not running', timestamp: new Date().toISOString() })))
+            controller.close()
+          } catch { /* already closed */ }
+        } else {
+          // Fall back to DB for older historical logs
+          db.coreLog
+            .findMany({
+              where: { coreId: id },
+              orderBy: { createdAt: 'asc' },
+              take: 300,
+            })
+            .then((logs) => {
+              for (const log of logs) {
+                const entry = JSON.stringify({
+                  level: log.level,
+                  message: log.message,
+                  timestamp: log.createdAt.toISOString(),
+                })
+                try {
+                  controller.enqueue(sendEvent(entry))
+                } catch {
+                  break
+                }
               }
-            }
-            // Send sentinel then close
-            try {
-              controller.enqueue(sendEvent(JSON.stringify({ level: 'info', message: '[ggoose] Core is not running', timestamp: new Date().toISOString() })))
-              controller.close()
-            } catch { /* already closed */ }
-          })
-          .catch(() => {
-            try { controller.close() } catch { /* ignore */ }
-          })
+              // Send sentinel then close
+              try {
+                controller.enqueue(sendEvent(JSON.stringify({ level: 'info', message: '[ggoose] Core is not running', timestamp: new Date().toISOString() })))
+                controller.close()
+              } catch { /* already closed */ }
+            })
+            .catch(() => {
+              try { controller.close() } catch { /* ignore */ }
+            })
+        }
       }
     },
     cancel() {

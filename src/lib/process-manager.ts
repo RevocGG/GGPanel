@@ -26,10 +26,16 @@ function toWslPath(winPath: string): string {
 /** Build spawn command/args — use WSL on Windows for Linux binaries */
 function buildSpawnCommand(binaryPath: string, configPath: string): { cmd: string; args: string[] } {
   if (process.platform === 'win32') {
-    // Windows: execute binary via WSL
+    // Windows: execute binary via WSL.
+    // --exec bypasses the WSL shell init that triggers the
+    // "localhost proxy not mirrored" warning in NAT mode.
     return {
       cmd: 'wsl',
-      args: [toWslPath(binaryPath), '-config', toWslPath(configPath)],
+      args: [
+        '--exec',
+        toWslPath(binaryPath),
+        '-config', toWslPath(configPath),
+      ],
     }
   }
   // Linux/Mac: execute directly
@@ -38,6 +44,38 @@ function buildSpawnCommand(binaryPath: string, configPath: string): { cmd: strin
     args: ['-config', configPath],
   }
 }
+
+/**
+ * WSL prints informational/warning lines to stderr that are not errors.
+ * These should be shown as info (or silently dropped) so they don't
+ * cause the core to appear as errored.
+ */
+const WSL_NOISE_PATTERNS = [
+  /^wsl:/i,                                // "wsl: A localhost proxy ..."
+  /localhost proxy/i,
+  /NAT mode does not support/i,
+  /not mirrored into WSL/i,
+]
+
+/**
+ * The binary writes many INFO-level messages to stderr (e.g. CARRIER INFO, CLIENT INFO).
+ * Reclassify these as 'info' so they don't show as red errors in the UI.
+ */
+const BINARY_INFO_PATTERNS = [
+  /\bCARRIER\s+INFO\b/,
+  /\bCLIENT\s+INFO\b/,
+  /\bSERVER\s+INFO\b/,
+  /\bINFO\b.*relay returned/i,
+  /\bINFO\b.*non-batch payload/i,
+]
+
+function isStderrInfo(line: string): boolean {
+  return WSL_NOISE_PATTERNS.some((re) => re.test(line))
+    || BINARY_INFO_PATTERNS.some((re) => re.test(line))
+}
+
+// Keep old name as alias so existing callers still work
+const isWslNoise = isStderrInfo
 
 interface LogEntry {
   level: 'info' | 'warn' | 'error'
@@ -49,26 +87,34 @@ interface ManagedProcess {
   proc: ChildProcess
   coreId: string
   logBuffer: string[]
-  requestCount: number
+  requestCount: number      // total since start (for live override)
+  pendingFlushCount: number // accumulated since last DB flush
   listeners: Set<(entry: string) => void>
 }
 
 // ── Module-level singleton ───────────────────────────────────────────────────
 // Works correctly with `next start` (single persistent Node.js process).
 // In dev (HMR), globalThis preserves the map across module reloads.
-const globalForPM = globalThis as unknown as { _ggooseProcesses: Map<string, ManagedProcess> }
-
-if (!globalForPM._ggooseProcesses) {
-  globalForPM._ggooseProcesses = new Map()
+const globalForPM = globalThis as unknown as {
+  _ggooseProcesses: Map<string, ManagedProcess>
+  _ggooseDeadLogs: Map<string, string[]>   // log buffer kept after exit
 }
 
+if (!globalForPM._ggooseProcesses) globalForPM._ggooseProcesses = new Map()
+if (!globalForPM._ggooseDeadLogs)  globalForPM._ggooseDeadLogs  = new Map()
+
 const processes = globalForPM._ggooseProcesses
+// Keeps last log buffer for a short while after process dies so SSE can read it.
+// Entries are evicted after 60 seconds to avoid memory leaks.
+const deadLogs  = globalForPM._ggooseDeadLogs
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
-/** Detect if a log line represents a forwarded request (heuristic) */
+/** Detect if a log line represents a forwarded connection/request */
 function isRequestLine(message: string): boolean {
   return /poll\s+ok|POST.*exec|relay\s+request|script\.google\.com|urlFetch/i.test(message)
+    || /SOCKS\s+INFO\s+new\s+session/i.test(message)
+    || /CARRIER\s+INFO\s+relay\s+ok/i.test(message)
 }
 
 function makeLogEntry(level: LogEntry['level'], message: string): string {
@@ -78,7 +124,9 @@ function makeLogEntry(level: LogEntry['level'], message: string): string {
 function handleOutput(managed: ManagedProcess, level: LogEntry['level'], chunk: Buffer) {
   const lines = chunk.toString().split('\n').filter(Boolean)
   for (const line of lines) {
-    const entry = makeLogEntry(level, line)
+    // WSL prints informational warnings to stderr — treat them as info, not errors
+    const effectiveLevel: LogEntry['level'] = (level === 'error' && isWslNoise(line)) ? 'info' : level
+    const entry = makeLogEntry(effectiveLevel, line)
 
     // Ring buffer — keep last 500 log lines in memory
     managed.logBuffer.push(entry)
@@ -87,6 +135,7 @@ function handleOutput(managed: ManagedProcess, level: LogEntry['level'], chunk: 
     // Increment request counter
     if (isRequestLine(line)) {
       managed.requestCount++
+      managed.pendingFlushCount++
       flushStats(managed).catch(() => {})
     }
 
@@ -129,32 +178,36 @@ async function persistLogs(coreId: string, lines: string[], level: LogEntry['lev
   }
 }
 
-// Debounce stats flush: once per 2 seconds
+// Debounce stats flush: once per 2 seconds, but always flushes ALL pending count
 const statsFlushTimers = new Map<string, ReturnType<typeof setTimeout>>()
 
 function flushStats(managed: ManagedProcess) {
-  const existing = statsFlushTimers.get(managed.coreId)
-  if (existing) clearTimeout(existing)
+  // If a timer is already pending, let it fire — it will pick up the latest pendingFlushCount
+  if (statsFlushTimers.has(managed.coreId)) return Promise.resolve()
 
   return new Promise<void>((resolve) => {
     const timer = setTimeout(async () => {
       statsFlushTimers.delete(managed.coreId)
+      const toFlush = managed.pendingFlushCount
+      if (toFlush === 0) { resolve(); return }
+      managed.pendingFlushCount = 0
       try {
         const { db } = await import('./db')
         await queueDbWrite(() => db.coreStats.upsert({
           where: { coreId: managed.coreId },
           update: {
-            todayRequests: { increment: 1 },
-            totalRequests: { increment: 1 },
+            todayRequests: { increment: toFlush },
+            totalRequests: { increment: toFlush },
           },
           create: {
             coreId: managed.coreId,
-            todayRequests: managed.requestCount,
-            totalRequests: managed.requestCount,
+            todayRequests: toFlush,
+            totalRequests: toFlush,
           },
         }))
       } catch {
-        // Non-critical
+        // Non-critical — put the count back so it's not lost
+        managed.pendingFlushCount += toFlush
       }
       resolve()
     }, 2000)
@@ -171,7 +224,19 @@ export const processManager = {
    */
   async start(coreId: string): Promise<void> {
     if (processes.has(coreId)) {
-      throw new Error('Core is already running')
+      const existing = processes.get(coreId)!
+      if (existing.proc.exitCode !== null) {
+        // Process has already exited but was not cleaned up — remove stale entry
+        processes.delete(coreId)
+      } else {
+        // Process is genuinely alive — re-sync DB and return
+        const { db: dbSync } = await import('./db')
+        await queueDbWrite(() => dbSync.core.update({
+          where: { id: coreId },
+          data: { status: 'running', pid: existing.proc.pid ?? null },
+        }))
+        return
+      }
     }
 
     const { db } = await import('./db')
@@ -227,20 +292,27 @@ export const processManager = {
       coreId,
       logBuffer: [makeLogEntry('info', `[ggoose] Starting core "${core.name}" (PID ${proc.pid})…`)],
       requestCount: 0,
+      pendingFlushCount: 0,
       listeners: new Set(),
     }
 
     processes.set(coreId, managed)
 
-    await queueDbWrite(() => db.core.update({
-      where: { id: coreId },
-      data: { status: 'running', pid: proc.pid ?? null },
-    }))
-
+    // Register stdout/stderr listeners IMMEDIATELY — before any awaits —
+    // so we never miss output from a fast-exiting process.
     proc.stdout?.on('data', (chunk: Buffer) => handleOutput(managed, 'info', chunk))
     proc.stderr?.on('data', (chunk: Buffer) => handleOutput(managed, 'error', chunk))
 
-    proc.on('exit', async (code) => {
+    proc.on('exit', async (code, signal) => {
+      // Log exit reason BEFORE removing from processes map
+      const reason = signal ? `signal ${signal}` : `code ${code}`
+      handleOutput(managed, code === 0 ? 'info' : 'error',
+        Buffer.from(`[ggoose] Process exited (${reason})`))
+
+      // Save log buffer so SSE can still serve it after the process is gone
+      deadLogs.set(coreId, [...managed.logBuffer])
+      setTimeout(() => deadLogs.delete(coreId), 60_000)
+
       processes.delete(coreId)
       try {
         const { db: dbInner } = await import('./db')
@@ -254,15 +326,20 @@ export const processManager = {
     proc.on('error', async (err) => {
       // Post-spawn errors (e.g. process crashed mid-run)
       processes.delete(coreId)
+      handleOutput(managed, 'error', Buffer.from(`[ggoose] Process error: ${err.message}`))
       try {
         const { db: dbInner } = await import('./db')
         await queueDbWrite(() => dbInner.core.update({
           where: { id: coreId },
           data: { status: 'error', pid: null },
         }))
-        handleOutput(managed, 'error', Buffer.from(`[ggoose] Process error: ${err.message}`))
       } catch { /* ignore */ }
     })
+
+    await queueDbWrite(() => db.core.update({
+      where: { id: coreId },
+      data: { status: 'running', pid: proc.pid ?? null },
+    }))
   },
 
   /** Stop a running core */
@@ -288,8 +365,13 @@ export const processManager = {
   subscribe(coreId: string, listener: (entry: string) => void): () => void {
     const managed = processes.get(coreId)
     if (!managed) {
-      // Core not running — return empty logs sentinel + no-op unsub
-      listener(makeLogEntry('info', '[ggoose] Core is not running'))
+      // Core not running — check if we have a recent dead-log buffer first
+      const dead = deadLogs.get(coreId)
+      if (dead && dead.length > 0) {
+        for (const entry of dead) listener(entry)
+      } else {
+        listener(makeLogEntry('info', '[ggoose] Core is not running'))
+      }
       return () => {}
     }
 
@@ -302,17 +384,33 @@ export const processManager = {
     return () => managed.listeners.delete(listener)
   },
 
-  /** Return the in-memory log buffer for a running core */
+  /** Return the in-memory log buffer — checks live process first, then recently-dead buffer */
   getRecentLogs(coreId: string): string[] {
-    return processes.get(coreId)?.logBuffer.slice(-200) ?? []
+    return processes.get(coreId)?.logBuffer.slice(-200)
+      ?? deadLogs.get(coreId)?.slice(-200)
+      ?? []
+  },
+
+  /** Return in-memory request count for a running core (more up-to-date than DB) */
+  getLiveRequestCount(coreId: string): number | null {
+    const managed = processes.get(coreId)
+    return managed ? managed.requestCount : null
   },
 
   /** Called on server boot: reset any stale "running" states in the DB */
   async resetStaleStatuses(): Promise<void> {
     try {
       const { db } = await import('./db')
+      // Only reset cores that are NOT currently tracked as running in memory.
+      // IMPORTANT: if activeIds is empty we skip entirely — there may be processes
+      // running in another worker whose Map we can't see, so we must NOT wipe them.
+      const activeIds = [...processes.keys()]
+      if (activeIds.length === 0) return
       await db.core.updateMany({
-        where: { status: { in: ['running', 'starting'] } },
+        where: {
+          status: { in: ['running', 'starting'] },
+          id: { notIn: activeIds },
+        },
         data: { status: 'stopped', pid: null },
       })
     } catch { /* ignore — DB might not be ready yet */ }

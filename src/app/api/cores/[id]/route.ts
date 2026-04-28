@@ -26,6 +26,18 @@ export async function GET(_req: NextRequest, { params }: Params) {
       include: { config: true, stats: true },
     })
     if (!core) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+    // Override DB status and stats with live process-manager state so UI is always accurate
+    if (processManager.isRunning(id) && core.status !== 'running') {
+      const liveCount = processManager.getLiveRequestCount(id)
+      const patchedStats = core.stats && liveCount !== null
+        ? { ...core.stats, todayRequests: core.stats.todayRequests + liveCount }
+        : core.stats
+      return NextResponse.json({ data: { ...core, status: 'running', stats: patchedStats } })
+    }
+    const liveCount = processManager.getLiveRequestCount(id)
+    if (liveCount !== null && core.stats) {
+      return NextResponse.json({ data: { ...core, stats: { ...core.stats, todayRequests: core.stats.todayRequests + liveCount } } })
+    }
     return NextResponse.json({ data: core })
   } catch {
     return NextResponse.json({ error: 'Failed to fetch core' }, { status: 500 })

@@ -3,22 +3,22 @@ import { forwardRef } from 'react'
 import { cva, type VariantProps } from 'class-variance-authority'
 
 const buttonVariants = cva(
-  'inline-flex items-center justify-center gap-2 rounded-lg font-medium transition-all duration-150 disabled:pointer-events-none disabled:opacity-50 select-none btn-hover',
+  'inline-flex items-center justify-center gap-2 font-bold tracking-widest uppercase text-xs disabled:pointer-events-none disabled:opacity-40 select-none btn-hover border',
   {
     variants: {
       variant: {
-        default: 'bg-primary text-bg-base hover:bg-primary/90 shadow-md shadow-primary/20 glow-primary',
-        secondary: 'bg-secondary text-white hover:bg-secondary/90 shadow-md shadow-secondary/20 glow-secondary',
-        ghost: 'text-text-muted hover:text-text-base hover:bg-bg-elevated',
-        danger: 'bg-danger text-white hover:bg-danger/90 glow-danger',
-        outline: 'border border-border text-text-base hover:border-primary hover:text-primary hover:bg-primary/5',
-        success: 'bg-success text-white hover:bg-success/90 glow-success',
+        default: 'bg-primary border-primary/70 text-white hover:bg-primary/90 glow-primary',
+        secondary: 'bg-bg-elevated border-border text-text-base hover:border-primary/50',
+        ghost: 'border-transparent text-text-muted hover:text-text-base hover:bg-bg-elevated hover:border-border',
+        danger: 'bg-danger border-danger/70 text-white hover:bg-danger/90 glow-danger',
+        outline: 'border-border text-text-muted hover:border-primary/60 hover:text-primary',
+        success: 'bg-success border-success/70 text-white hover:bg-success/90 glow-success',
       },
       size: {
-        sm: 'h-8 px-3 text-xs',
-        md: 'h-9 px-4 text-sm',
-        lg: 'h-10 px-5 text-sm',
-        icon: 'h-8 w-8',
+        sm: 'h-7 px-3 text-xs',
+        md: 'h-8 px-4 text-xs',
+        lg: 'h-9 px-5 text-xs',
+        icon: 'h-7 w-7',
       },
     },
     defaultVariants: {
