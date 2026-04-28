@@ -94,30 +94,36 @@ jobs:
       # ── Download goose-client binary from GooseRelayVPN releases ────────────
       - name: Download goose-client binary
         shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # Fetch latest release tag from GooseRelayVPN
-          LATEST=$(curl -fsSL "https://api.github.com/repos/Kianmhz/GooseRelayVPN/releases/latest" \
-            | grep '"tag_name"' | head -1 | sed 's/.*"tag_name": *"\([^"]*\)".*/\1/')
-          echo "GooseRelayVPN latest: $LATEST"
+          mkdir -p client-bin client-extract
 
           CLIENT_OS="${{ matrix.client_os }}"
           CLIENT_ARCH="${{ matrix.client_arch }}"
           CLIENT_EXT="${{ matrix.client_ext }}"
-          ASSET="GooseRelayVPN-client-${LATEST}-${CLIENT_OS}-${CLIENT_ARCH}.${CLIENT_EXT}"
-          URL="https://github.com/Kianmhz/GooseRelayVPN/releases/download/${LATEST}/${ASSET}"
-          echo "Downloading: $URL"
-          curl -fsSL "$URL" -o "client-bundle.${CLIENT_EXT}"
 
-          mkdir -p client-bin client-extract
+          # Use gh CLI (pre-installed on all runners) — handles auth and retries
+          gh release download \
+            --repo Kianmhz/GooseRelayVPN \
+            --pattern "*-${CLIENT_OS}-${CLIENT_ARCH}.${CLIENT_EXT}" \
+            --dir client-extract \
+            --clobber
+
           if [ "$CLIENT_EXT" = "zip" ]; then
-            unzip -q "client-bundle.zip" -d client-extract
-            find client-extract -name "goose-client*" ! -name "*.gz" ! -name "*.tar" | head -1 | xargs -I{} cp {} client-bin/goose-client.exe
+            ZIPFILE=$(find client-extract -name "*.zip" | head -1)
+            unzip -q "$ZIPFILE" -d client-extract/unzipped
+            find client-extract/unzipped -name "goose-client.exe" -o -name "goose-client" | head -1 \
+              | xargs -I{} cp {} client-bin/goose-client.exe
           else
-            tar xzf "client-bundle.tar.gz" -C client-extract
-            find client-extract -name "goose-client" -type f | head -1 | xargs -I{} cp {} client-bin/goose-client
+            TARFILE=$(find client-extract -name "*.tar.gz" | head -1)
+            tar xzf "$TARFILE" -C client-extract
+            find client-extract -name "goose-client" -type f | grep -v "\.tar" | head -1 \
+              | xargs -I{} cp {} client-bin/goose-client
             chmod +x client-bin/goose-client
           fi
-          echo "CLIENT_BIN=$(ls client-bin/)" >> "$GITHUB_ENV"
+
+          echo "Downloaded: $(ls client-bin/)"
 
       # ── Download Node.js binary for target platform ──────────────────────────
       - name: Download bundled Node.js
