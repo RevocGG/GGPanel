@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic'
+
 import { db } from '@/lib/db'
 import { parseScriptKeys, calcQuota, formatNumber } from '@/lib/utils'
 import { Activity, Server, Zap, AlertTriangle } from 'lucide-react'

@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic'
+
 import { db } from '@/lib/db'
 import { notFound } from 'next/navigation'
 import { parseScriptKeys, calcQuota } from '@/lib/utils'
