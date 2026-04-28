@@ -37,19 +37,11 @@ jobs:
           - label: linux-armv7
             runner: ubuntu-22.04
             node_platform: linux
-            node_arch: arm
+            node_arch: armv7l
+            node_version: '20'
             archive_ext: tar.gz
             client_os: linux
             client_arch: armv7
-            client_ext: tar.gz
-            client_bin: goose-client
-          - label: macos-x64
-            runner: macos-13
-            node_platform: darwin
-            node_arch: x64
-            archive_ext: tar.gz
-            client_os: darwin
-            client_arch: amd64
             client_ext: tar.gz
             client_bin: goose-client
           - label: macos-arm64
@@ -150,7 +142,12 @@ jobs:
       - name: Download bundled Node.js
         shell: bash
         run: |
-          NODE_VERSION="22.15.0"
+          # Use matrix node_version if specified, otherwise fetch latest v22
+          MAJOR="${{ matrix.node_version || '22' }}"
+          NODE_VERSION=$(curl -fsSL "https://nodejs.org/dist/latest-v${MAJOR}.x/SHASUMS256.txt" \
+            | head -1 | grep -oP 'node-v\K[0-9]+\.[0-9]+\.[0-9]+' || echo "")
+          [ -z "$NODE_VERSION" ] && NODE_VERSION="${MAJOR}.0.0"
+          echo "Using Node.js v${NODE_VERSION}"
           PLATFORM="${{ matrix.node_platform }}"
           ARCH="${{ matrix.node_arch }}"
 
