@@ -184,14 +184,21 @@ export function LogViewer({ coreId, initialLogs = [], isRunning, compact = false
             <p className="text-xs tracking-widest uppercase" style={{fontSize:'0.6rem'}}>Waiting for output…</p>
           </div>
         ) : (
-          logs.map((log, i) => (
+          logs.map((log, i) => {
+            // Panel-generated logs start with '[ggoose]'; binary output does not need extra timestamp
+            const isPanelLog = log.message.startsWith('[ggoose]')
+            return (
             <div key={i} className={cn(
               'flex gap-2 px-1 py-0.5 leading-5 group hover:bg-white/[0.02]',
             )}>
-              {/* Time */}
-              <span className="text-text-dim flex-shrink-0 font-mono tabular-nums w-[68px]">
-                {log.timestamp.slice(11, 19)}
-              </span>
+              {/* Time — only for panel logs */}
+              {isPanelLog ? (
+                <span className="text-text-dim flex-shrink-0 font-mono tabular-nums w-[68px]">
+                  {log.timestamp.slice(11, 19)}
+                </span>
+              ) : (
+                <span className="flex-shrink-0 w-[68px]" />
+              )}
               {/* Level badge */}
               <span className={cn(
                 'flex-shrink-0 border px-1 text-[9px] uppercase font-bold leading-4 self-start mt-0.5 w-11 text-center',
@@ -204,7 +211,8 @@ export function LogViewer({ coreId, initialLogs = [], isRunning, compact = false
                 {parseAnsi(log.message)}
               </span>
             </div>
-          ))
+            )
+          })
         )}
         <div ref={bottomRef} />
       </div>

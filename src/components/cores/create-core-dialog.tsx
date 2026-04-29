@@ -79,12 +79,12 @@ export function CreateCoreDialog({ binaries, onClose, prefill }: Props) {
         }),
       })
       const json = await res.json()
-      if (!res.ok) throw new Error('Create failed')
+      if (!res.ok) throw new Error(json.error ?? 'Create failed')
       toast.success(`Core "${data.name}" created`)
       router.refresh()
       onClose()
-    } catch {
-      toast.error('Failed to create core')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to create core')
     } finally {
       setSaving(false)
     }

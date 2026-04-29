@@ -56,10 +56,19 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     const { name, description, binaryPath, socksHost, socksPort, googleHost, sni, scriptKeys, tunnelKey } = parsed.data
 
     // Check if core is currently running — we'll need to restart it after config update
-    const existingCore = await db.core.findUnique({ where: { id } })
+    const existingCore = await db.core.findUnique({ where: { id }, include: { config: true } })
     if (!existingCore) {
       return NextResponse.json({ error: 'Core not found' }, { status: 404 })
     }
+
+    // Port conflict check — only if port is changing
+    if (socksPort !== undefined && socksPort !== existingCore.config?.socksPort) {
+      const conflict = await db.coreConfig.findFirst({ where: { socksPort, coreId: { not: id } } })
+      if (conflict) {
+        return NextResponse.json({ error: `Port ${socksPort} is already in use by another core` }, { status: 409 })
+      }
+    }
+
     const wasRunning = existingCore.status === 'running'
 
     // Stop if running (will be restarted after update)

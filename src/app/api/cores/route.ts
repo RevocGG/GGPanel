@@ -51,6 +51,12 @@ export async function POST(req: NextRequest) {
 
     const { name, description, binaryPath, socksHost, socksPort, googleHost, sni, scriptKeys, tunnelKey } = parsed.data
 
+    // Check if port is already used by another core
+    const existingPort = await db.coreConfig.findFirst({ where: { socksPort } })
+    if (existingPort) {
+      return NextResponse.json({ error: `Port ${socksPort} is already in use by another core` }, { status: 409 })
+    }
+
     // Resolve binary path relative to cores dir if not absolute
     const coresDir = process.env.CORES_DIR ?? path.join(process.cwd(), 'data', 'cores')
     const resolvedBinary = path.isAbsolute(binaryPath)
