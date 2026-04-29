@@ -1,5 +1,7 @@
 # GGoose UI
 
+![GGoose Dashboard](./docs/images/dashboard-preview.png)
+
 [![GitHub Release](https://img.shields.io/github/v/release/RevocGG/GGoose-ui?logo=github)](https://github.com/RevocGG/GGoose-ui/releases/latest)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
