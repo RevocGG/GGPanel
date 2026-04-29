@@ -26,7 +26,14 @@ function toWslPath(winPath: string): string {
 /** Build spawn command/args — use WSL on Windows for Linux binaries */
 function buildSpawnCommand(binaryPath: string, configPath: string): { cmd: string; args: string[] } {
   if (process.platform === 'win32') {
-    // Windows: execute binary via WSL.
+    // If the binary is a native Windows EXE, run it directly with Windows paths.
+    if (binaryPath.toLowerCase().endsWith('.exe')) {
+      return {
+        cmd: binaryPath,
+        args: ['-config', configPath],
+      }
+    }
+    // Otherwise it's a Linux ELF binary — execute via WSL.
     // --exec bypasses the WSL shell init that triggers the
     // "localhost proxy not mirrored" warning in NAT mode.
     return {
