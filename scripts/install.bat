@@ -48,8 +48,7 @@ for /f %%i in ('powershell -NoProfile -Command "[System.BitConverter]::ToString(
 (
   echo ADMIN_USERNAME=%ADMIN_USERNAME%
   echo ADMIN_PASSWORD=%ADMIN_PASSWORD%
-  echo AUTH_SECRET=%AUTH_SECRET%
-  echo PORT=%PORT%
+  echo AUTH_SECRET=%AUTH_SECRET%  echo COOKIE_SECURE=false  echo PORT=%PORT%
   echo HOSTNAME=0.0.0.0
   echo DATABASE_URL=file:%DIR%\data\goose.db
   echo CORES_DIR=%DIR%\data\cores

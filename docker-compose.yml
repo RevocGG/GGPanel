@@ -17,6 +17,7 @@ services:
       DATABASE_URL: "file:/app/data/goose.db"
       CORES_DIR: "/app/data/cores"
       CONFIGS_DIR: "/app/data/configs"
+      COOKIE_SECURE: "false"
     volumes:
       # Persistent data: database, core binaries, generated configs
       - ./data:/app/data

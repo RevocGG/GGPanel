@@ -99,6 +99,7 @@ jobs:
           ADMIN_USERNAME: build
           ADMIN_PASSWORD: build
           AUTH_SECRET: build-placeholder
+          COOKIE_SECURE: "false"
           DATABASE_URL: file:./data/goose.db
 
       # ── Download goose-client binary from GooseRelayVPN releases ────────────
@@ -194,12 +195,14 @@ jobs:
           if [ "${{ matrix.node_platform }}" = "win" ]; then
             cp scripts/install.bat "$BUNDLE/install.bat"
             cp scripts/start.bat   "$BUNDLE/start.bat"
+            cp scripts/uninstall.bat "$BUNDLE/uninstall.bat"
             cp node-bundle.exe     "$BUNDLE/node.exe"
           else
             cp scripts/install-offline.sh "$BUNDLE/install-offline.sh"
             cp scripts/start.sh           "$BUNDLE/start.sh"
+            cp scripts/uninstall.sh       "$BUNDLE/uninstall.sh"
             cp node-bundle                "$BUNDLE/node"
-            chmod +x "$BUNDLE/install-offline.sh" "$BUNDLE/start.sh" "$BUNDLE/node"
+            chmod +x "$BUNDLE/install-offline.sh" "$BUNDLE/start.sh" "$BUNDLE/uninstall.sh" "$BUNDLE/node"
           fi
 
           cp .env.example "$BUNDLE/.env.example"
@@ -270,12 +273,14 @@ jobs:
             cd ggoose-ui-${{ github.ref_name }}-linux-x64
             ./install-offline.sh       # first-time setup
             ./start.sh                 # start the server
+            ./uninstall.sh             # remove everything
             ```
 
             ### Windows
             1. Extract the `.zip` file
             2. Double-click **install.bat** (first-time setup)
             3. Double-click **start.bat** to start the server
+            4. Double-click **uninstall.bat** to remove everything
 
             ### After setup
             - Open `http://SERVER_IP:3000` in your browser
