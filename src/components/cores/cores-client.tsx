@@ -91,7 +91,7 @@ export function CoresClient({ cores, binaries, mode }: Props) {
   // mode === 'list'
   return (
     <>
-      <div className="grid gap-4">
+      <div className="grid gap-4 md:grid-cols-2">
         {cores.map((core) => (
           <CoreCard key={core.id} core={core} onClone={openClone} />
         ))}
