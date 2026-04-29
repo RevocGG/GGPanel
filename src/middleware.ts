@@ -63,37 +63,3 @@ export async function middleware(request: NextRequest) {
 export const config = {
   matcher: ['/dashboard/:path*', '/api/:path*', '/login'],
 }
-
-    // API routes → 401 JSON
-    if (pathname.startsWith('/api/')) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-    // Pages → redirect to login
-    const loginUrl = request.nextUrl.clone()
-    loginUrl.pathname = '/login'
-    loginUrl.searchParams.set('from', pathname)
-    return NextResponse.redirect(loginUrl)
-  }
-
-  const payload = await verifySession(token)
-  if (!payload) {
-    // Invalid/expired token — clear cookie and redirect
-    if (pathname.startsWith('/api/')) {
-      const res = NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-      res.cookies.delete('session')
-      return res
-    }
-    const loginUrl = request.nextUrl.clone()
-    loginUrl.pathname = '/login'
-    loginUrl.searchParams.set('from', pathname)
-    const res = NextResponse.redirect(loginUrl)
-    res.cookies.delete('session')
-    return res
-  }
-
-  return NextResponse.next()
-}
-
-export const config = {
-  matcher: ['/dashboard/:path*', '/api/:path*', '/login'],
-}

@@ -1,7 +1,21 @@
 import { SignJWT, jwtVerify } from 'jose'
-import { timingSafeEqual } from 'crypto'
 
 const getSecret = () => new TextEncoder().encode(process.env.AUTH_SECRET ?? 'fallback-dev-secret-change-this')
+
+function constantTimeEqual(a: string, b: string): boolean {
+  const enc = new TextEncoder()
+  const aBytes = enc.encode(a)
+  const bBytes = enc.encode(b)
+  const maxLen = Math.max(aBytes.length, bBytes.length)
+
+  let diff = aBytes.length ^ bBytes.length
+
+  for (let i = 0; i < maxLen; i++) {
+    diff |= (aBytes[i] ?? 0) ^ (bBytes[i] ?? 0)
+  }
+
+  return diff === 0
+}
 
 /** Create a signed JWT session token */
 export async function createSession(username: string): Promise<string> {
@@ -29,18 +43,9 @@ export function validateCredentials(inputUser: string, inputPass: string): boole
 
   if (!validUser || !validPass) return false
 
-  try {
-    const userMatch = timingSafeEqual(
-      Buffer.from(inputUser.padEnd(validUser.length)),
-      Buffer.from(validUser)
-    )
-    const passMatch = timingSafeEqual(
-      Buffer.from(inputPass.padEnd(validPass.length)),
-      Buffer.from(validPass)
-    )
-    // Avoid short-circuit: check both regardless
-    return userMatch && passMatch && inputUser.length === validUser.length && inputPass.length === validPass.length
-  } catch {
-    return false
-  }
+  const userMatch = constantTimeEqual(inputUser, validUser)
+  const passMatch = constantTimeEqual(inputPass, validPass)
+
+  // Avoid short-circuit: evaluate both regardless
+  return userMatch && passMatch
 }
