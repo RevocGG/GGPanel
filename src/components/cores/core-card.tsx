@@ -18,6 +18,7 @@ interface Props {
     name: string
     status: string
     binaryPath: string
+    coreType: string
     config: {
       socksPort: number
       socksHost: string
@@ -25,6 +26,9 @@ interface Props {
       sni: string
       scriptKeys: string
       tunnelKey: string
+    } | null
+    flowDriverConfig: {
+      listenAddr: string
     } | null
     quota: QuotaInfo | null
   }
@@ -109,10 +113,15 @@ export function CoreCard({ core, onClone }: Props) {
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
               <div className={`w-1.5 h-1.5 flex-shrink-0 ${isRunning ? 'bg-success status-dot-running' : 'bg-text-dim'}`} />
+              <span className="text-base leading-none" title={core.coreType === 'flowdriver' ? 'FlowDriver' : 'GooseRelayVPN'}>
+                {core.coreType === 'flowdriver' ? '🌊' : '🪿'}
+              </span>
               <h3 className="font-bold text-text-base text-xs tracking-wider uppercase truncate">{core.name}</h3>
             </div>
             <p className="text-text-dim text-xs mt-0.5 font-mono pl-3.5">
-              SOCKS5 :{core.config?.socksPort ?? '—'}
+              {core.coreType === 'flowdriver'
+                ? `SOCKS5 ${core.flowDriverConfig?.listenAddr ?? '—'}`
+                : `SOCKS5 ${core.config?.socksHost ?? '127.0.0.1'}:${core.config?.socksPort ?? '—'}`}
             </p>
           </div>
           <Badge variant={statusVariant} dot>

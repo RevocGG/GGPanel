@@ -1,15 +1,17 @@
-# GGoose UI
+# GGPanel
 
-![نمای داشبورد GGoose](./docs/images/dashboard-preview.png)
+![نمای داشبورد GGPanel](./docs/images/dashboard-preview.png)
 
 [![GitHub Release](https://img.shields.io/github/v/release/RevocGG/GGoose-ui?logo=github)](https://github.com/RevocGG/GGoose-ui/releases/latest)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 **[English README 🇬🇧](README.md)**
 
-داشبورد وب برای مدیریت کورهای کلاینت [GooseRelayVPN](https://github.com/Kianmhz/GooseRelayVPN). ساخت، پیکربندی، شروع/توقف و مانیتور چندین VPN core از یک تب مرورگر — بدون نیاز به ترمینال.
+داشبورد وب برای مدیریت کورهای [GooseRelayVPN](https://github.com/Kianmhz/GooseRelayVPN) و [FlowDriver](https://github.com/NullLatency/FlowDriver). ساخت، پیکربندی، شروع/توقف و مانیتور چندین تونل core از یک تب مرورگر — بدون نیاز به ترمینال.
 
-> GooseRelayVPN یک VPN بر پایه SOCKS5 است که ترافیک TCP را از طریق Google Apps Script به VPS شخصی شما تونل می‌کند، الهام‌گرفته از [MasterHttpRelayVPN](https://github.com/masterking32/MasterHttpRelayVPN).
+> **موتورهای پشتیبانی‌شده:**
+> - [GooseRelayVPN](https://github.com/Kianmhz/GooseRelayVPN) — VPN بر پایه SOCKS5 از طریق Google Apps Script
+> - [FlowDriver](https://github.com/NullLatency/FlowDriver) — VPN بر پایه SOCKS5 از طریق Google Drive API (با OAuth2 داخلی)
 
 ---
 
@@ -19,11 +21,11 @@
 - ▶️ **شروع / توقف / ریستارت** با یک کلیک
 - 📋 **لاگ زنده** — خروجی بلادرنگ از طریق SSE
 - 📊 **آمار مصرف** — شمارنده درخواست روزانه و کلی برای هر core
-- 🔑 **چندین script key** با load balancing خودکار (round-robin)
+- 🔑 **چندین script key** با load balancing خودکار (GooseRelayVPN)
+- 🌊 **پشتیبانی FlowDriver** — فلوی OAuth2 داخلی، آپلود credentials.json، تونلینگ از طریق Google Drive API ([FlowDriver](https://github.com/NullLatency/FlowDriver))
 - 🔒 **ورود امن** — جلسه JWT با بررسی timing-safe
 - 📦 **بسته آفلاین** — آرشیو آماده با Node.js تعبیه‌شده (بدون نیاز به نصب چیزی)
 - 🐳 **پشتیبانی Docker** — راه‌اندازی با یک دستور با Docker Compose
-- 🤖 **دانلود خودکار** باینری `goose-client` از ریلیزهای GooseRelayVPN در زمان بیلد
 
 ----
 
@@ -113,14 +115,28 @@ node .next/standalone/server.js
 
 ## افزودن Core
 
-1. داشبورد → **Cores** → **New Core**
+### کور GooseRelayVPN 🪿
+
+1. داشبورد → **Cores** → **New Core** → **GooseRelayVPN**
 2. پر کردن فرم:
    - **Name** — نام نمایشی
-   - **Binary** — نام فایل باینری `goose-client` در پوشه `data/cores/` (در بسته موجود است)
-   - **SOCKS port** — پورت محلی برای این core (مثلاً `1080`)
+   - **Binary** — نام فایل باینری `goose-client` در پوشه `data/cores/`
+   - **SOCKS port** — پورت محلی (مثلاً `1080`)
    - **Script keys** — Deployment ID های Google Apps Script
    - **Tunnel key** — کلید AES هگز ۶۴ کاراکتری (باید با پیکربندی سرور VPS یکسان باشد)
 3. روی **Create** کلیک کنید، سپس **Start**
+
+### کور FlowDriver 🌊 ([FlowDriver](https://github.com/NullLatency/FlowDriver))
+
+1. داشبورد → **Cores** → **New Core** → **FlowDriver**
+2. پر کردن فرم:
+   - **Name** — نام نمایشی
+   - **Binary** — نام فایل باینری FlowDriver در پوشه `data/cores/`
+   - **Listen Address** — آدرس SOCKS5 محلی (مثلاً `127.0.0.1:1080`)
+   - **credentials.json** — فایل OAuth2 گوگل را آپلود کنید (از Google Cloud Console) یا مسیر مطلق وارد کنید
+3. روی **Create** کلیک کنید، سپس **Start**
+4. در اولین راه‌اندازی، یک دیالوگ احراز هویت OAuth2 ظاهر می‌شود — فلوی مرورگر را در تب Logs تکمیل کنید
+5. پس از اولین احراز هویت، فایل `.token` ذخیره می‌شود — راه‌اندازی‌های بعدی خاموش هستند
 
 ---
 
@@ -194,7 +210,8 @@ GGoose-ui/
 
 ## پروژه‌های مرتبط
 
-- [GooseRelayVPN](https://github.com/Kianmhz/GooseRelayVPN) — موتور VPN (باینری‌های client و server، Apps Script)
+- [GooseRelayVPN](https://github.com/Kianmhz/GooseRelayVPN) — VPN SOCKS5 از طریق Google Apps Script (کلاینت + سرور + Apps Script)
+- [FlowDriver](https://github.com/NullLatency/FlowDriver) — VPN SOCKS5 از طریق Google Drive API
 - [MasterHttpRelayVPN](https://github.com/masterking32/MasterHttpRelayVPN) — پروژه‌ای که GooseRelayVPN از آن الهام گرفته
 
 ---

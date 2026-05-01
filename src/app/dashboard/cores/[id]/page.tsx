@@ -12,7 +12,7 @@ interface Props {
 async function getCore(id: string) {
   return db.core.findUnique({
     where: { id },
-    include: { config: true, stats: true },
+    include: { config: true, flowDriverConfig: true, stats: true },
   })
 }
 
@@ -63,6 +63,9 @@ export default async function CoreDetailPage({ params }: Props) {
         updatedAt: core.updatedAt.toISOString(),
         config: core.config
           ? { ...core.config, updatedAt: core.config.updatedAt.toISOString() }
+          : null,
+        flowDriverConfig: core.flowDriverConfig
+          ? { ...core.flowDriverConfig, updatedAt: core.flowDriverConfig.updatedAt.toISOString() }
           : null,
         stats: core.stats
           ? {

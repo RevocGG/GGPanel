@@ -3,8 +3,8 @@ import './globals.css'
 import { Providers } from '@/components/providers'
 
 export const metadata: Metadata = {
-  title: 'GGoose UI',
-  description: 'Management panel for GooseRelayVPN and similar tunnel projects',
+  title: 'GGPanel',
+  description: 'Management panel for GooseRelayVPN and FlowDriver tunnel cores',
 }
 
 export default function RootLayout({

@@ -21,6 +21,7 @@ interface CoreData {
   name: string
   description: string | null
   binaryPath: string
+  coreType: string
   status: string
   pid: number | null
   createdAt: string
@@ -32,6 +33,20 @@ interface CoreData {
     sni: string
     scriptKeys: string
     tunnelKey: string
+    socksUser: string
+    socksPass: string
+    updatedAt: string
+  } | null
+  flowDriverConfig: {
+    listenAddr: string
+    googleFolderId: string
+    refreshRateMs: number
+    flushRateMs: number
+    transportTarget: string
+    transportSni: string
+    transportHost: string
+    transportInsecureSkipVerify?: boolean
+    credentialsPath: string
     updatedAt: string
   } | null
   stats: {
@@ -203,9 +218,29 @@ export function CoreDetailClient({ core, binaries, quota, initialLogs }: Props) 
         </div>
 
         <div className="glass p-5 mt-0" style={{borderTop:'none', borderTopLeftRadius:0, borderTopRightRadius:0}}>
-          {tab === 'config' && core.config && (
+          {tab === 'config' && core.coreType === 'flowdriver' && (
             <ConfigForm
               coreId={core.id}
+              coreType="flowdriver"
+              binaries={binaries}
+              defaultValues={{
+                binaryPath: binaryFilename,
+                listenAddr: core.flowDriverConfig?.listenAddr,
+                googleFolderId: core.flowDriverConfig?.googleFolderId ?? '',
+                refreshRateMs: core.flowDriverConfig?.refreshRateMs,
+                flushRateMs: core.flowDriverConfig?.flushRateMs,
+                transportTarget: core.flowDriverConfig?.transportTarget,
+                transportSni: core.flowDriverConfig?.transportSni,
+                transportHost: core.flowDriverConfig?.transportHost,
+                credentialsPath: core.flowDriverConfig?.credentialsPath ?? '',
+              }}
+              onSaved={() => router.refresh()}
+            />
+          )}
+          {tab === 'config' && core.coreType !== 'flowdriver' && core.config && (
+            <ConfigForm
+              coreId={core.id}
+              coreType="goose"
               binaries={binaries}
               defaultValues={{
                 socksHost: core.config.socksHost,
@@ -214,12 +249,14 @@ export function CoreDetailClient({ core, binaries, quota, initialLogs }: Props) 
                 sni: core.config.sni,
                 scriptKeys,
                 tunnelKey: core.config.tunnelKey,
+                socksUser: core.config.socksUser,
+                socksPass: core.config.socksPass,
                 binaryPath: binaryFilename,
               }}
               onSaved={() => router.refresh()}
             />
           )}
-          {tab === 'config' && !core.config && (
+          {tab === 'config' && core.coreType !== 'flowdriver' && !core.config && (
             <p className="text-text-muted text-xs tracking-wider uppercase">No configuration found.</p>
           )}
 
@@ -234,6 +271,7 @@ export function CoreDetailClient({ core, binaries, quota, initialLogs }: Props) 
           {tab === 'stats' && (
             <StatsPanel
               coreId={core.id}
+              coreType={core.coreType}
               stats={core.stats}
               scriptKeys={scriptKeys}
             />

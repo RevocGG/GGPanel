@@ -17,15 +17,16 @@ interface StatsData {
 
 interface Props {
   coreId: string
+  coreType?: string
   stats: StatsData | null
   scriptKeys: string[]
 }
 
-export function StatsPanel({ coreId, stats, scriptKeys }: Props) {
+export function StatsPanel({ coreId, coreType, stats, scriptKeys }: Props) {
   const [resetting, setResetting] = useState(false)
   const router = useRouter()
 
-  const quota = stats ? calcQuota(stats.todayRequests, scriptKeys.length) : null
+  const quota = (stats && coreType !== 'flowdriver') ? calcQuota(stats.todayRequests, scriptKeys.length) : null
 
   async function handleReset() {
     setResetting(true)
@@ -45,6 +46,35 @@ export function StatsPanel({ coreId, stats, scriptKeys }: Props) {
     return (
       <div className="text-center py-8 text-text-muted" style={{fontSize:'0.7rem', letterSpacing:'0.1em', textTransform:'uppercase'}}>
         No stats available. Start the core to begin tracking.
+      </div>
+    )
+  }
+
+  // FlowDriver uses Google Drive API — no script-key quota, just request counts
+  if (coreType === 'flowdriver') {
+    return (
+      <div className="space-y-5">
+        <div className="grid grid-cols-2 gap-3">
+          <div className="glass p-4">
+            <div className="flex items-center gap-2 mb-2">
+              <Calendar className="w-3 h-3 text-text-muted" />
+              <span className="font-bold text-text-dim tracking-widest uppercase" style={{fontSize:'0.55rem'}}>Today</span>
+            </div>
+            <p className="text-xl font-bold text-text-base font-mono">{formatNumber(stats.todayRequests)}</p>
+            <p className="text-text-dim" style={{fontSize:'0.55rem', letterSpacing:'0.06em', textTransform:'uppercase', marginTop:'2px'}}>Drive Requests</p>
+          </div>
+          <div className="glass p-4">
+            <div className="flex items-center gap-2 mb-2">
+              <TrendingUp className="w-3 h-3 text-text-muted" />
+              <span className="font-bold text-text-dim tracking-widest uppercase" style={{fontSize:'0.55rem'}}>Total</span>
+            </div>
+            <p className="text-xl font-bold text-text-base font-mono">{formatNumber(stats.totalRequests)}</p>
+            <p className="text-text-dim" style={{fontSize:'0.55rem', letterSpacing:'0.06em', textTransform:'uppercase', marginTop:'2px'}}>All Time</p>
+          </div>
+        </div>
+        <Button variant="outline" size="sm" loading={resetting} onClick={handleReset} className="w-full text-xs">
+          <RotateCcw className="w-3 h-3 mr-1" /> Reset daily counter
+        </Button>
       </div>
     )
   }

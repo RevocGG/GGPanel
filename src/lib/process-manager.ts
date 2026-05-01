@@ -1,5 +1,5 @@
 import { spawn, type ChildProcess } from 'child_process'
-import { writeConfigFile } from './config-writer'
+import { writeConfigFile, writeFlowDriverConfigFile } from './config-writer'
 import path from 'path'
 
 const CORES_DIR = process.env.CORES_DIR ?? path.join(process.cwd(), 'data', 'cores')
@@ -23,33 +23,48 @@ function toWslPath(winPath: string): string {
     .replace(/\\/g, '/')
 }
 
-/** Build spawn command/args — use WSL on Windows for Linux binaries */
-function buildSpawnCommand(binaryPath: string, configPath: string): { cmd: string; args: string[] } {
+/**
+ * Build spawn command/args depending on core type.
+ *
+ * goose:       ./goose-client -config <configPath>
+ * flowdriver:  ./client -c <configPath> -gc <credentialsPath>
+ *
+ * On Windows, Linux ELF binaries are wrapped via `wsl --exec`.
+ * Native .exe files are run directly.
+ */
+function buildSpawnCommand(
+  binaryPath: string,
+  configPath: string,
+  opts: { coreType: string; credentialsPath?: string } = { coreType: 'goose' }
+): { cmd: string; args: string[] } {
+  const isFlowDriver = opts.coreType === 'flowdriver'
+  const credPath = opts.credentialsPath ?? ''
+
   if (process.platform === 'win32') {
-    // If the binary is a native Windows EXE, run it directly with Windows paths.
     if (binaryPath.toLowerCase().endsWith('.exe')) {
+      // Native Windows EXE — run directly
+      if (isFlowDriver) {
+        return { cmd: binaryPath, args: ['-c', configPath, '-gc', credPath] }
+      }
+      return { cmd: binaryPath, args: ['-config', configPath] }
+    }
+    // Linux ELF — use WSL
+    if (isFlowDriver) {
       return {
-        cmd: binaryPath,
-        args: ['-config', configPath],
+        cmd: 'wsl',
+        args: ['--exec', toWslPath(binaryPath), '-c', toWslPath(configPath), '-gc', toWslPath(credPath)],
       }
     }
-    // Otherwise it's a Linux ELF binary — execute via WSL.
-    // --exec bypasses the WSL shell init that triggers the
-    // "localhost proxy not mirrored" warning in NAT mode.
     return {
       cmd: 'wsl',
-      args: [
-        '--exec',
-        toWslPath(binaryPath),
-        '-config', toWslPath(configPath),
-      ],
+      args: ['--exec', toWslPath(binaryPath), '-config', toWslPath(configPath)],
     }
   }
   // Linux/Mac: execute directly
-  return {
-    cmd: binaryPath,
-    args: ['-config', configPath],
+  if (isFlowDriver) {
+    return { cmd: binaryPath, args: ['-c', configPath, '-gc', credPath] }
   }
+  return { cmd: binaryPath, args: ['-config', configPath] }
 }
 
 /**
@@ -66,14 +81,20 @@ const WSL_NOISE_PATTERNS = [
 
 /**
  * The binary writes many INFO-level messages to stderr (e.g. CARRIER INFO, CLIENT INFO).
+ * FlowDriver (Go binary) also uses stderr for all log output via log.Printf.
  * Reclassify these as 'info' so they don't show as red errors in the UI.
  */
 const BINARY_INFO_PATTERNS = [
+  // GooseRelayVPN patterns
   /\bCARRIER\s+INFO\b/,
   /\bCLIENT\s+INFO\b/,
   /\bSERVER\s+INFO\b/,
   /\bINFO\b.*relay returned/i,
   /\bINFO\b.*non-batch payload/i,
+  // FlowDriver patterns — Go log.Printf format: "2006/01/02 15:04:05 message"
+  /^\d{4}\/\d{2}\/\d{2}\s+\d{2}:\d{2}:\d{2}\s/,
+  // FlowDriver status messages
+  /Zero-Config|Flow-Data|OAuth|Trading code|refresh token|Google Drive|FlowDriver|tunnel.*up|session.*new/i,
 ]
 
 function isStderrInfo(line: string): boolean {
@@ -85,7 +106,7 @@ function isStderrInfo(line: string): boolean {
 const isWslNoise = isStderrInfo
 
 interface LogEntry {
-  level: 'info' | 'warn' | 'error'
+  level: 'info' | 'warn' | 'error' | 'oauth'
   message: string
   timestamp: string
 }
@@ -93,10 +114,12 @@ interface LogEntry {
 interface ManagedProcess {
   proc: ChildProcess
   coreId: string
+  coreType: string
   logBuffer: string[]
   requestCount: number      // total since start (for live override)
   pendingFlushCount: number // accumulated since last DB flush
   listeners: Set<(entry: string) => void>
+  oauthState: 'none' | 'waiting' | 'done' // FlowDriver OAuth flow state
 }
 
 // ── Module-level singleton ───────────────────────────────────────────────────
@@ -119,10 +142,17 @@ const deadLogs  = globalForPM._ggooseDeadLogs
 
 /** Detect if a log line represents a forwarded connection/request */
 function isRequestLine(message: string): boolean {
-  return /poll\s+ok|POST.*exec|relay\s+request|script\.google\.com|urlFetch/i.test(message)
-    || /SOCKS\s+INFO\s+new\s+session/i.test(message)
-    || /CARRIER\s+INFO\s+relay\s+ok/i.test(message)
+  // GooseRelayVPN patterns
+  if (/poll\s+ok|POST.*exec|relay\s+request|script\.google\.com|urlFetch/i.test(message)) return true
+  if (/SOCKS\s+INFO\s+new\s+session/i.test(message)) return true
+  if (/CARRIER\s+INFO\s+relay\s+ok/i.test(message)) return true
+  // FlowDriver patterns (Google Drive API based)
+  if (/drive.*upload|drive.*download|new\s+session|request\s+forwarded/i.test(message)) return true
+  return false
 }
+
+/** Detect Google OAuth URL in FlowDriver output */
+const OAUTH_URL_RE = /https:\/\/accounts\.google\.com\/[^\s]+/
 
 function makeLogEntry(level: LogEntry['level'], message: string): string {
   return JSON.stringify({ level, message, timestamp: new Date().toISOString() })
@@ -133,6 +163,31 @@ function handleOutput(managed: ManagedProcess, level: LogEntry['level'], chunk: 
   for (const line of lines) {
     // WSL prints informational warnings to stderr — treat them as info, not errors
     const effectiveLevel: LogEntry['level'] = (level === 'error' && isWslNoise(line)) ? 'info' : level
+
+    // FlowDriver OAuth URL detection — broadcast as special 'oauth' level entry
+    // so the UI can show an interactive dialog instead of treating it as a regular log
+    if (managed.coreType === 'flowdriver' && managed.oauthState === 'none') {
+      const oauthMatch = OAUTH_URL_RE.exec(line)
+      if (oauthMatch) {
+        managed.oauthState = 'waiting'
+        const oauthEntry = makeLogEntry('oauth', oauthMatch[0])
+        managed.logBuffer.push(oauthEntry)
+        if (managed.logBuffer.length > 500) managed.logBuffer.shift()
+        for (const listener of managed.listeners) {
+          try { listener(oauthEntry) } catch { managed.listeners.delete(listener) }
+        }
+        // Also emit the raw line as info
+        const rawEntry = makeLogEntry('info', line)
+        managed.logBuffer.push(rawEntry)
+        if (managed.logBuffer.length > 500) managed.logBuffer.shift()
+        for (const listener of managed.listeners) {
+          try { listener(rawEntry) } catch { managed.listeners.delete(listener) }
+        }
+        persistLogs(managed.coreId, [line], 'info').catch(() => {})
+        continue
+      }
+    }
+
     const entry = makeLogEntry(effectiveLevel, line)
 
     // Ring buffer — keep last 500 log lines in memory
@@ -249,14 +304,30 @@ export const processManager = {
     const { db } = await import('./db')
     const core = await db.core.findUnique({
       where: { id: coreId },
-      include: { config: true },
+      include: { config: true, flowDriverConfig: true },
     })
 
     if (!core) throw new Error('Core not found')
-    if (!core.config) throw new Error('Core has no configuration — save a config first')
 
-    // Write config to disk
-    const configPath = await writeConfigFile(core.config)
+    // Branch config-writing and spawn args based on core type
+    let configPath: string
+    let spawnOpts: { coreType: string; credentialsPath?: string }
+
+    if (core.coreType === 'flowdriver') {
+      if (!core.flowDriverConfig) throw new Error('FlowDriver core has no configuration — save a config first')
+      if (!core.flowDriverConfig.credentialsPath) throw new Error('FlowDriver requires a credentials.json path — set it in Config')
+      configPath = await writeFlowDriverConfigFile(core.flowDriverConfig)
+      // Resolve credentials path — relative paths are relative to CONFIGS_DIR
+      const CONFIGS_DIR = process.env.CONFIGS_DIR ?? path.join(process.cwd(), 'data', 'configs')
+      const resolvedCreds = path.isAbsolute(core.flowDriverConfig.credentialsPath)
+        ? core.flowDriverConfig.credentialsPath
+        : path.join(CONFIGS_DIR, core.flowDriverConfig.credentialsPath)
+      spawnOpts = { coreType: 'flowdriver', credentialsPath: resolvedCreds }
+    } else {
+      if (!core.config) throw new Error('Core has no configuration — save a config first')
+      configPath = await writeConfigFile(core.config)
+      spawnOpts = { coreType: 'goose' }
+    }
 
     // Mark as starting
     await queueDbWrite(() => db.core.update({
@@ -269,10 +340,12 @@ export const processManager = {
       ? core.binaryPath
       : path.join(CORES_DIR, core.binaryPath)
 
-    const { cmd, args } = buildSpawnCommand(binaryPath, configPath)
+    const { cmd, args } = buildSpawnCommand(binaryPath, configPath, spawnOpts)
+    // FlowDriver requires stdin to be piped for the OAuth callback URL flow
+    const stdinMode = spawnOpts.coreType === 'flowdriver' ? 'pipe' : 'ignore'
     const proc = spawn(cmd, args, {
       env: { ...process.env },
-      stdio: ['ignore', 'pipe', 'pipe'],
+      stdio: [stdinMode, 'pipe', 'pipe'],
     })
 
     // Wait for spawn confirmation OR immediate error (with timeout).
@@ -297,10 +370,12 @@ export const processManager = {
     const managed: ManagedProcess = {
       proc,
       coreId,
+      coreType: core.coreType,
       logBuffer: [makeLogEntry('info', `[ggoose] Starting core "${core.name}" (PID ${proc.pid})…`)],
       requestCount: 0,
       pendingFlushCount: 0,
       listeners: new Set(),
+      oauthState: 'none',
     }
 
     processes.set(coreId, managed)
@@ -402,6 +477,32 @@ export const processManager = {
   getLiveRequestCount(coreId: string): number | null {
     const managed = processes.get(coreId)
     return managed ? managed.requestCount : null
+  },
+
+  /**
+   * Send text to a running process's stdin.
+   * Used for FlowDriver OAuth2 flow: after the user pastes the callback URL,
+   * we forward it to the binary which is waiting on stdin.
+   */
+  sendStdin(coreId: string, text: string): void {
+    const managed = processes.get(coreId)
+    if (!managed) throw new Error('Core is not running')
+    if (!managed.proc.stdin) throw new Error('Process stdin is not available')
+    managed.proc.stdin.write(text + '\n')
+    managed.oauthState = 'done'
+    // Notify listeners that OAuth is complete
+    const entry = makeLogEntry('info', '[ggoose] OAuth callback sent — authentication in progress…')
+    managed.logBuffer.push(entry)
+    for (const listener of managed.listeners) {
+      try { listener(entry) } catch { managed.listeners.delete(listener) }
+    }
+  },
+
+  /** Return OAuth state for a FlowDriver core */
+  getOAuthState(coreId: string): 'none' | 'waiting' | 'done' | 'not_running' {
+    const managed = processes.get(coreId)
+    if (!managed) return 'not_running'
+    return managed.oauthState
   },
 
   /** Called on server boot: reset any stale "running" states in the DB */

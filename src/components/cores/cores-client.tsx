@@ -23,6 +23,10 @@ interface CoreItem {
   name: string
   status: string
   binaryPath: string
+  coreType: string
+  flowDriverConfig: {
+    listenAddr: string
+  } | null
   config: {
     socksPort: number
     socksHost: string

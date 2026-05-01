@@ -1,5 +1,5 @@
 {
-  "name": "ggoose-ui",
+  "name": "ggpanel",
   "version": "1.0.0",
   "private": true,
   "description": "Professional management UI for GooseRelayVPN and similar tunnel projects",
@@ -40,6 +40,7 @@
     "@types/node": "^22.14.1",
     "@types/react": "^19.1.0",
     "@types/react-dom": "^19.1.0",
+    "caxa": "^3.0.1",
     "postcss": "^8.5.3",
     "prisma": "^7.8.0",
     "tailwindcss": "^4.2.4",

@@ -55,6 +55,8 @@ async function main() {
       "sni"        TEXT     NOT NULL DEFAULT 'www.google.com',
       "scriptKeys" TEXT     NOT NULL DEFAULT '[]',
       "tunnelKey"  TEXT     NOT NULL DEFAULT '',
+      "socksUser"  TEXT     NOT NULL DEFAULT '',
+      "socksPass"  TEXT     NOT NULL DEFAULT '',
       "updatedAt"  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
       CONSTRAINT "CoreConfig_coreId_fkey"
         FOREIGN KEY ("coreId") REFERENCES "Core" ("id") ON DELETE CASCADE ON UPDATE CASCADE
@@ -84,6 +86,10 @@ async function main() {
     // Reset stale statuses left over from a previous crash
     `UPDATE "Core" SET "status" = 'stopped', "pid" = NULL
       WHERE "status" IN ('running', 'starting')`,
+    // Idempotent column additions for upgrades from older versions
+    `ALTER TABLE "CoreConfig" ADD COLUMN "socksUser" TEXT NOT NULL DEFAULT ''`,
+    `ALTER TABLE "CoreConfig" ADD COLUMN "socksPass" TEXT NOT NULL DEFAULT ''`,
+    `ALTER TABLE "Core" ADD COLUMN "coreType" TEXT NOT NULL DEFAULT 'goose'`,
   ]
 
   for (const sql of ddl) {
@@ -91,10 +97,10 @@ async function main() {
   }
 
   db.close()
-  console.log('[ggoose] Database ready:', absPath)
+  console.log('[ggpanel] Database ready:', absPath)
 }
 
 main().catch(err => {
-  console.error('[ggoose] Setup failed:', err.message)
+  console.error('[ggpanel] Setup failed:', err.message)
   process.exit(1)
 })

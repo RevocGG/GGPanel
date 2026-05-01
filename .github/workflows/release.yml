@@ -25,6 +25,8 @@ jobs:
             client_arch: amd64
             client_ext: tar.gz
             client_bin: goose-client
+            fd_os: linux
+            fd_arch: amd64
           - label: linux-arm64
             runner: ubuntu-22.04
             node_platform: linux
@@ -34,6 +36,8 @@ jobs:
             client_arch: arm64
             client_ext: tar.gz
             client_bin: goose-client
+            fd_os: linux
+            fd_arch: arm64
           - label: linux-armv7
             runner: ubuntu-22.04
             node_platform: linux
@@ -44,6 +48,8 @@ jobs:
             client_arch: armv7
             client_ext: tar.gz
             client_bin: goose-client
+            fd_os: ""
+            fd_arch: ""
           - label: macos-arm64
             runner: macos-14
             node_platform: darwin
@@ -53,6 +59,8 @@ jobs:
             client_arch: arm64
             client_ext: tar.gz
             client_bin: goose-client
+            fd_os: darwin
+            fd_arch: arm64
           - label: windows-x64
             runner: windows-2022
             node_platform: win
@@ -62,6 +70,8 @@ jobs:
             client_arch: amd64
             client_ext: zip
             client_bin: goose-client.exe
+            fd_os: windows
+            fd_arch: amd64
           - label: windows-arm64
             runner: windows-2022
             node_platform: win
@@ -71,6 +81,8 @@ jobs:
             client_arch: arm64
             client_ext: zip
             client_bin: goose-client.exe
+            fd_os: windows
+            fd_arch: amd64
 
     steps:
       # ── Checkout ────────────────────────────────────────────────────────────
@@ -138,6 +150,42 @@ jobs:
           fi
 
           echo "Downloaded: $(ls client-bin/)"
+
+      # ── Download FlowDriver binary from NullLatency/FlowDriver releases ────────
+      - name: Download FlowDriver binary
+        shell: bash
+        run: |
+          FD_OS="${{ matrix.fd_os }}"
+          FD_ARCH="${{ matrix.fd_arch }}"
+
+          if [ -z "$FD_OS" ] || [ -z "$FD_ARCH" ]; then
+            echo "No FlowDriver binary for ${{ matrix.label }}, skipping"
+            mkdir -p fd-bin
+            exit 0
+          fi
+
+          mkdir -p fd-bin fd-extract
+
+          LATEST=$(curl -fsSL "https://api.github.com/repos/NullLatency/FlowDriver/releases/latest" \
+            -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            | grep '"tag_name"' | head -1 | sed 's/.*"tag_name": *"\([^"]*\)".*/\1/')
+          echo "Using FlowDriver ${LATEST}"
+
+          ASSET="flow-driver-${LATEST}-${FD_OS}-${FD_ARCH}.zip"
+          URL="https://github.com/NullLatency/FlowDriver/releases/download/${LATEST}/${ASSET}"
+          echo "Downloading: $URL"
+          curl -fsSL -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            "$URL" -o "fd-bundle.zip"
+
+          unzip -q "fd-bundle.zip" -d fd-extract/
+
+          if [ "$FD_OS" = "windows" ]; then
+            find fd-extract -name "client.exe" | head -1 | xargs -I{} cp {} fd-bin/flowdriver-client.exe
+          else
+            find fd-extract -name "client" -type f | head -1 | xargs -I{} cp {} fd-bin/flowdriver-client
+            chmod +x fd-bin/flowdriver-client
+          fi
+          echo "Downloaded FlowDriver: $(ls fd-bin/)"
 
       # ── Download Node.js binary for target platform ──────────────────────────
       - name: Download bundled Node.js
@@ -214,9 +262,14 @@ jobs:
           mkdir -p "$BUNDLE/data/cores"
           if [ "${{ matrix.node_platform }}" = "win" ]; then
             cp client-bin/goose-client.exe "$BUNDLE/data/cores/goose-client.exe"
+            [ -f fd-bin/flowdriver-client.exe ] && cp fd-bin/flowdriver-client.exe "$BUNDLE/data/cores/flowdriver-client.exe" || true
           else
             cp client-bin/goose-client "$BUNDLE/data/cores/goose-client"
             chmod +x "$BUNDLE/data/cores/goose-client"
+            if [ -f fd-bin/flowdriver-client ]; then
+              cp fd-bin/flowdriver-client "$BUNDLE/data/cores/flowdriver-client"
+              chmod +x "$BUNDLE/data/cores/flowdriver-client"
+            fi
           fi
 
           echo "BUNDLE=$BUNDLE" >> "$GITHUB_ENV"

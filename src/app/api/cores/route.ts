@@ -3,7 +3,9 @@ import { db } from '@/lib/db'
 import { z } from 'zod'
 import path from 'path'
 
-const CreateCoreSchema = z.object({
+// ── Goose core creation schema ────────────────────────────────────────────────
+const CreateGooseSchema = z.object({
+  coreType: z.literal('goose').default('goose'),
   name: z.string().min(1).max(64),
   description: z.string().max(256).optional(),
   binaryPath: z.string().min(1),
@@ -13,12 +15,37 @@ const CreateCoreSchema = z.object({
   sni: z.string().default('www.google.com'),
   scriptKeys: z.array(z.string()).default([]),
   tunnelKey: z.string().default(''),
+  socksUser: z.string().optional().default(''),
+  socksPass: z.string().optional().default(''),
 })
+
+// ── FlowDriver core creation schema ──────────────────────────────────────────
+// FlowDriver uses Google Drive API — config fields are completely different from Goose.
+// See src/lib/config-writer.ts > writeFlowDriverConfigFile for the resulting JSON format.
+const CreateFlowDriverSchema = z.object({
+  coreType: z.literal('flowdriver'),
+  name: z.string().min(1).max(64),
+  description: z.string().max(256).optional(),
+  binaryPath: z.string().min(1),
+  listenAddr: z.string().default('127.0.0.1:1080'),
+  googleFolderId: z.string().default(''),
+  refreshRateMs: z.number().int().min(50).max(10000).default(200),
+  flushRateMs: z.number().int().min(50).max(10000).default(300),
+  transportTarget: z.string().default('216.239.38.120:443'),
+  transportSni: z.string().default('google.com'),
+  transportHost: z.string().default('www.googleapis.com'),
+  credentialsPath: z.string().default(''),
+})
+
+const CreateCoreSchema = z.discriminatedUnion('coreType', [
+  CreateGooseSchema,
+  CreateFlowDriverSchema,
+])
 
 export async function GET() {
   try {
     const cores = await db.core.findMany({
-      include: { config: true, stats: true },
+      include: { config: true, flowDriverConfig: true, stats: true },
       orderBy: { createdAt: 'desc' },
     })
     // Override DB status and stats with live process-manager state so UI is always accurate
@@ -49,7 +76,34 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 })
     }
 
-    const { name, description, binaryPath, socksHost, socksPort, googleHost, sni, scriptKeys, tunnelKey } = parsed.data
+    const coresDir = process.env.CORES_DIR ?? path.join(process.cwd(), 'data', 'cores')
+    const resolvedBinary = path.isAbsolute(parsed.data.binaryPath)
+      ? parsed.data.binaryPath
+      : path.join(coresDir, parsed.data.binaryPath)
+
+    if (parsed.data.coreType === 'flowdriver') {
+      const { name, description, coreType, listenAddr, googleFolderId, refreshRateMs,
+              flushRateMs, transportTarget, transportSni, transportHost, credentialsPath } = parsed.data
+
+      const core = await db.core.create({
+        data: {
+          name,
+          description: description ?? null,
+          binaryPath: resolvedBinary,
+          coreType,
+          flowDriverConfig: {
+            create: { listenAddr, googleFolderId, refreshRateMs, flushRateMs,
+                      transportTarget, transportSni, transportHost, credentialsPath },
+          },
+          stats: { create: {} },
+        },
+        include: { config: true, flowDriverConfig: true, stats: true },
+      })
+      return NextResponse.json({ data: core }, { status: 201 })
+    }
+
+    // Goose core
+    const { name, description, socksHost, socksPort, googleHost, sni, scriptKeys, tunnelKey, socksUser, socksPass } = parsed.data
 
     // Check if port is already used by another core
     const existingPort = await db.coreConfig.findFirst({ where: { socksPort } })
@@ -57,17 +111,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: `Port ${socksPort} is already in use by another core` }, { status: 409 })
     }
 
-    // Resolve binary path relative to cores dir if not absolute
-    const coresDir = process.env.CORES_DIR ?? path.join(process.cwd(), 'data', 'cores')
-    const resolvedBinary = path.isAbsolute(binaryPath)
-      ? binaryPath
-      : path.join(coresDir, binaryPath)
-
     const core = await db.core.create({
       data: {
         name,
         description: description ?? null,
         binaryPath: resolvedBinary,
+        coreType: 'goose',
         config: {
           create: {
             socksHost,
@@ -76,13 +125,13 @@ export async function POST(req: NextRequest) {
             sni,
             scriptKeys: JSON.stringify(scriptKeys),
             tunnelKey,
+            socksUser: socksUser ?? '',
+            socksPass: socksPass ?? '',
           },
         },
-        stats: {
-          create: {},
-        },
+        stats: { create: {} },
       },
-      include: { config: true, stats: true },
+      include: { config: true, flowDriverConfig: true, stats: true },
     })
 
     return NextResponse.json({ data: core }, { status: 201 })

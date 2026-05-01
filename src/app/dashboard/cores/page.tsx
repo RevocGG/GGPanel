@@ -7,7 +7,7 @@ import { CoresClient } from '@/components/cores/cores-client'
 
 async function getCores() {
   return db.core.findMany({
-    include: { config: true, stats: true },
+    include: { config: true, stats: true, flowDriverConfig: true },
     orderBy: { createdAt: 'desc' },
   })
 }

@@ -11,17 +11,20 @@ model Core {
   id          String   @id @default(cuid())
   name        String
   description String?
-  binaryPath  String   // path to the goose-client binary (relative or absolute)
+  binaryPath  String   // path to the binary (relative or absolute)
+  coreType    String   @default("goose") // "goose" | "flowdriver"
   status      String   @default("stopped") // running | stopped | error | starting
   pid         Int?     // OS process ID when running
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  config CoreConfig?
-  stats  CoreStats?
-  logs   CoreLog[]
+  config           CoreConfig?
+  flowDriverConfig FlowDriverConfig?
+  stats            CoreStats?
+  logs             CoreLog[]
 }
 
+// Config for GooseRelayVPN core type
 model CoreConfig {
   id         String   @id @default(cuid())
   coreId     String   @unique
@@ -29,10 +32,34 @@ model CoreConfig {
   socksHost  String   @default("127.0.0.1")
   socksPort  Int      @default(1080)
   googleHost String   @default("216.239.38.120")
-  sni        String   @default("www.google.com")
+  sni        String   @default("www.google.com") // plain string OR JSON array e.g. ["www.google.com","mail.google.com"]
   scriptKeys String   @default("[]") // JSON-serialised string[]
   tunnelKey  String   @default("")
+  socksUser  String   @default("") // optional SOCKS5 username (RFC 1929)
+  socksPass  String   @default("") // optional SOCKS5 password
   updatedAt  DateTime @updatedAt
+}
+
+// Config for FlowDriver core type (Google Drive-based SOCKS5 tunnel)
+// NOTE: FlowDriver is fundamentally different from GooseRelayVPN:
+//   - Uses Google Drive API (not Google Apps Script)
+//   - Requires OAuth2 credentials.json + .token file
+//   - CLI: ./client -c config.json -gc credentials.json
+//   - First run requires interactive browser OAuth flow (handled in-panel via stdin/SSE)
+model FlowDriverConfig {
+  id              String   @id @default(cuid())
+  coreId          String   @unique
+  core            Core     @relation(fields: [coreId], references: [id], onDelete: Cascade)
+  listenAddr      String   @default("127.0.0.1:1080")
+  googleFolderId  String   @default("") // auto-created by binary if left empty
+  refreshRateMs   Int      @default(200)
+  flushRateMs     Int      @default(300)
+  transportTarget String   @default("216.239.38.120:443")
+  transportSni    String   @default("google.com")
+  transportHost   String   @default("www.googleapis.com")
+  credentialsPath String   @default("") // absolute path to OAuth2 credentials.json
+  tokenPath       String   @default("") // absolute path to .token (set after first OAuth)
+  updatedAt       DateTime @updatedAt
 }
 
 model CoreStats {
@@ -49,7 +76,7 @@ model CoreLog {
   id        String   @id @default(cuid())
   coreId    String
   core      Core     @relation(fields: [coreId], references: [id], onDelete: Cascade)
-  level     String   @default("info") // info | warn | error
+  level     String   @default("info") // info | warn | error | oauth
   message   String
   createdAt DateTime @default(now())
 

@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, useCallback } from 'react'
 import React from 'react'
 import { Download, Pause, Play, Trash2, Terminal } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { OAuthDialog } from '@/components/cores/oauth-dialog'
 import { cn } from '@/lib/utils'
 
 interface LogEntry {
@@ -82,6 +83,7 @@ function levelBadgeStyle(level: string) {
 export function LogViewer({ coreId, initialLogs = [], isRunning, compact = false }: LogViewerProps) {
   const [logs, setLogs] = useState<LogEntry[]>(initialLogs)
   const [paused, setPaused] = useState(false)
+  const [oauthUrl, setOauthUrl] = useState<string | null>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
   const pendingRef = useRef<LogEntry[]>([])
 
@@ -104,6 +106,11 @@ export function LogViewer({ coreId, initialLogs = [], isRunning, compact = false
     es.onmessage = (e) => {
       try {
         const entry: LogEntry = JSON.parse(e.data)
+        // FlowDriver OAuth URL — show dialog instead of logging
+        if (entry.level === 'oauth') {
+          setOauthUrl(entry.message)
+          return
+        }
         if (!paused) {
           pendingRef.current.push(entry)
         }
@@ -143,6 +150,15 @@ export function LogViewer({ coreId, initialLogs = [], isRunning, compact = false
 
   return (
     <div className="flex flex-col h-full">
+      {/* FlowDriver OAuth dialog — shown when binary outputs a Google auth URL */}
+      {oauthUrl && (
+        <OAuthDialog
+          coreId={coreId}
+          authUrl={oauthUrl}
+          onComplete={() => setOauthUrl(null)}
+        />
+      )}
+
       {/* Toolbar */}
       <div className="flex items-center justify-between mb-2 gap-2 flex-wrap">
         <div className="flex items-center gap-2">
@@ -185,20 +201,10 @@ export function LogViewer({ coreId, initialLogs = [], isRunning, compact = false
           </div>
         ) : (
           logs.map((log, i) => {
-            // Panel-generated logs start with '[ggoose]'; binary output does not need extra timestamp
-            const isPanelLog = log.message.startsWith('[ggoose]')
             return (
             <div key={i} className={cn(
               'flex gap-2 px-1 py-0.5 leading-5 group hover:bg-white/[0.02]',
             )}>
-              {/* Time — only for panel logs */}
-              {isPanelLog ? (
-                <span className="text-text-dim flex-shrink-0 font-mono tabular-nums w-[68px]">
-                  {log.timestamp.slice(11, 19)}
-                </span>
-              ) : (
-                <span className="flex-shrink-0 w-[68px]" />
-              )}
               {/* Level badge */}
               <span className={cn(
                 'flex-shrink-0 border px-1 text-[9px] uppercase font-bold leading-4 self-start mt-0.5 w-11 text-center',
@@ -208,7 +214,7 @@ export function LogViewer({ coreId, initialLogs = [], isRunning, compact = false
               </span>
               {/* Message with ANSI parsing */}
               <span className="text-text-base break-all opacity-85">
-                {parseAnsi(log.message)}
+                {parseAnsi(log.message.replace(/^\[ggoose\]\s*/, '').trimEnd())}
               </span>
             </div>
             )

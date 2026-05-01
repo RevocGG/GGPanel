@@ -55,7 +55,7 @@ export function Sidebar() {
             <Shield className="w-4 h-4 text-primary" />
           </div>
           <div>
-            <span className="text-sm font-bold neon-text tracking-widest uppercase">GGoose</span>
+            <span className="text-sm font-bold neon-text tracking-widest uppercase">GGPanel</span>
             <p className="text-text-dim text-xs tracking-wider uppercase" style={{fontSize:'0.55rem'}}>Management UI</p>
           </div>
         </div>
