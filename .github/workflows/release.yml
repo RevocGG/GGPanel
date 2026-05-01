@@ -36,8 +36,8 @@ jobs:
             client_arch: arm64
             client_ext: tar.gz
             client_bin: goose-client
-            fd_os: linux
-            fd_arch: arm64
+            fd_os: ""
+            fd_arch: ""
           - label: linux-armv7
             runner: ubuntu-22.04
             node_platform: linux
