@@ -62,6 +62,23 @@ async function main() {
         FOREIGN KEY ("coreId") REFERENCES "Core" ("id") ON DELETE CASCADE ON UPDATE CASCADE
     )`,
     `CREATE UNIQUE INDEX IF NOT EXISTS "CoreConfig_coreId_key" ON "CoreConfig"("coreId")`,
+    `CREATE TABLE IF NOT EXISTS "FlowDriverConfig" (
+      "id"              TEXT     NOT NULL PRIMARY KEY,
+      "coreId"          TEXT     NOT NULL,
+      "listenAddr"      TEXT     NOT NULL DEFAULT '127.0.0.1:1080',
+      "googleFolderId"  TEXT     NOT NULL DEFAULT '',
+      "refreshRateMs"   INTEGER  NOT NULL DEFAULT 200,
+      "flushRateMs"     INTEGER  NOT NULL DEFAULT 300,
+      "transportTarget" TEXT     NOT NULL DEFAULT '216.239.38.120:443',
+      "transportSni"    TEXT     NOT NULL DEFAULT 'google.com',
+      "transportHost"   TEXT     NOT NULL DEFAULT 'www.googleapis.com',
+      "credentialsPath" TEXT     NOT NULL DEFAULT '',
+      "tokenPath"       TEXT     NOT NULL DEFAULT '',
+      "updatedAt"       DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      CONSTRAINT "FlowDriverConfig_coreId_fkey"
+        FOREIGN KEY ("coreId") REFERENCES "Core" ("id") ON DELETE CASCADE ON UPDATE CASCADE
+    )`,
+    `CREATE UNIQUE INDEX IF NOT EXISTS "FlowDriverConfig_coreId_key" ON "FlowDriverConfig"("coreId")`,
     `CREATE TABLE IF NOT EXISTS "CoreStats" (
       "id"            TEXT     NOT NULL PRIMARY KEY,
       "coreId"        TEXT     NOT NULL,
