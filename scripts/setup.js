@@ -86,14 +86,24 @@ async function main() {
     // Reset stale statuses left over from a previous crash
     `UPDATE "Core" SET "status" = 'stopped', "pid" = NULL
       WHERE "status" IN ('running', 'starting')`,
-    // Idempotent column additions for upgrades from older versions
-    `ALTER TABLE "CoreConfig" ADD COLUMN "socksUser" TEXT NOT NULL DEFAULT ''`,
-    `ALTER TABLE "CoreConfig" ADD COLUMN "socksPass" TEXT NOT NULL DEFAULT ''`,
-    `ALTER TABLE "Core" ADD COLUMN "coreType" TEXT NOT NULL DEFAULT 'goose'`,
   ]
 
   for (const sql of ddl) {
     await db.execute(sql)
+  }
+
+  // Idempotent column additions — ignore "duplicate column" errors for existing DBs
+  const alterStatements = [
+    `ALTER TABLE "CoreConfig" ADD COLUMN "socksUser" TEXT NOT NULL DEFAULT ''`,
+    `ALTER TABLE "CoreConfig" ADD COLUMN "socksPass" TEXT NOT NULL DEFAULT ''`,
+    `ALTER TABLE "Core" ADD COLUMN "coreType" TEXT NOT NULL DEFAULT 'goose'`,
+  ]
+  for (const sql of alterStatements) {
+    try {
+      await db.execute(sql)
+    } catch (e) {
+      if (!String(e).includes('duplicate column')) throw e
+    }
   }
 
   db.close()
